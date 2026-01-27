@@ -15,14 +15,6 @@ public class Main {
     }
 
     public static void initDatabase() {
-        // Ensure db directory exists
-        File dbFile = new File(DB_PATH);
-        File dbDir = dbFile.getParentFile();
-        if (dbDir != null && !dbDir.exists()) {
-            if (dbDir.mkdirs()) {
-                System.out.println("Created database directory: " + dbDir.getAbsolutePath());
-            }
-        }
 
         String sql = "CREATE TABLE IF NOT EXISTS users (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
@@ -33,9 +25,9 @@ public class Main {
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
-            System.out.println("Database initialized successfully at: " + dbFile.getAbsolutePath());
+            System.out.println("Database initialized successfully at: " + DB_PATH);
         } catch (SQLException e) {
-            System.err.println("Error of DB Init: " + e.getMessage());
+            e.getMessage();
             e.printStackTrace();
         }
     }
