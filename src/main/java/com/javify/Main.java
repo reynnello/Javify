@@ -1,21 +1,24 @@
 package com.javify;
 
-import java.io.File;
+import javafx.application.Application;
+import javafx.stage.Stage;
 import java.sql.*;
 
-public class Main {
+public class Main extends Application {
     private static final String DB_PATH = "db/users.db";
     private static final String URL = "jdbc:sqlite:" + DB_PATH;
 
-    public static void main(String[] args) {
+    @Override
+    public void start(Stage primaryStage) {
         initDatabase();
-        javax.swing.SwingUtilities.invokeLater(() -> {
-            new LoginWindow(URL).setVisible(true);
-        });
+        new LoginWindow(primaryStage, URL);
+    }
+
+    public static void main(String[] args) {
+        launch(args);
     }
 
     public static void initDatabase() {
-
         String sql = "CREATE TABLE IF NOT EXISTS users (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "username TEXT UNIQUE NOT NULL," +
@@ -27,7 +30,6 @@ public class Main {
             stmt.execute(sql);
             System.out.println("Database initialized successfully at: " + DB_PATH);
         } catch (SQLException e) {
-            e.getMessage();
             e.printStackTrace();
         }
     }
