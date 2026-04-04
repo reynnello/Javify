@@ -1,21 +1,16 @@
 plugins {
     id 'java'
     id 'application'
-    id 'org.openjfx.javafxplugin' version '0.1.0'
 }
 
 repositories {
     mavenCentral()
 }
 
-javafx {
-    version = "21"
-    modules = [ 'javafx.controls', 'javafx.fxml' ]
-}
-
 dependencies {
     implementation 'org.xerial:sqlite-jdbc:3.46.0.0'
     implementation 'org.mindrot:jbcrypt:0.4'
+    implementation 'net.jthink:jaudiotagger:3.0.1'
 }
 
 application {

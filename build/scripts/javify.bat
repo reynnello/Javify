@@ -70,7 +70,7 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\javify.jar;%APP_HOME%\lib\sqlite-jdbc-3.46.0.0.jar;%APP_HOME%\lib\jbcrypt-0.4.jar;%APP_HOME%\lib\javafx-fxml-21-win.jar;%APP_HOME%\lib\javafx-controls-21-win.jar;%APP_HOME%\lib\slf4j-api-1.7.36.jar;%APP_HOME%\lib\javafx-graphics-21-win.jar;%APP_HOME%\lib\javafx-base-21-win.jar
+set CLASSPATH=%APP_HOME%\lib\javify.jar;%APP_HOME%\lib\sqlite-jdbc-3.46.0.0.jar;%APP_HOME%\lib\jbcrypt-0.4.jar;%APP_HOME%\lib\jaudiotagger-3.0.1.jar;%APP_HOME%\lib\slf4j-api-1.7.36.jar
 
 
 @rem Execute javify

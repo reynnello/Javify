@@ -1,70 +1,79 @@
 package com.javify;
 
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.stage.Stage;
 import org.mindrot.jbcrypt.BCrypt;
 
+import javax.swing.*;
+import java.awt.*;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-public class RegisterWindow {
+public class RegisterWindow extends JFrame {
     private final String dbUrl;
-    private final Stage stage;
+    private JTextField userTextField;
+    private JPasswordField pwBox;
 
-    public RegisterWindow(Stage stage, String dbUrl) {
-        this.stage = stage;
+    public RegisterWindow(String dbUrl) {
         this.dbUrl = dbUrl;
         initWindow();
     }
 
     private void initWindow() {
-        stage.setTitle("Register");
+        setTitle("Register");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(350, 200);
+        setLocationRelativeTo(null);
 
-        GridPane grid = new GridPane();
-        grid.setAlignment(Pos.CENTER);
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(25, 25, 25, 25));
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints constraints = new GridBagConstraints();
+        constraints.insets = new Insets(10, 10, 10, 10);
+        constraints.fill = GridBagConstraints.HORIZONTAL;
 
-        Label userName = new Label("Username:");
-        grid.add(userName, 0, 1);
+        JLabel userNameLabel = new JLabel("Username:");
+        constraints.gridx = 0;
+        constraints.gridy = 0;
+        panel.add(userNameLabel, constraints);
 
-        TextField userTextField = new TextField();
-        grid.add(userTextField, 1, 1);
+        userTextField = new JTextField(15);
+        constraints.gridx = 1;
+        constraints.gridy = 0;
+        panel.add(userTextField, constraints);
 
-        Label pw = new Label("Password:");
-        grid.add(pw, 0, 2);
+        JLabel pwLabel = new JLabel("Password:");
+        constraints.gridx = 0;
+        constraints.gridy = 1;
+        panel.add(pwLabel, constraints);
 
-        PasswordField pwBox = new PasswordField();
-        grid.add(pwBox, 1, 2);
+        pwBox = new JPasswordField(15);
+        constraints.gridx = 1;
+        constraints.gridy = 1;
+        panel.add(pwBox, constraints);
 
-        Button registerBtn = new Button("Register");
-        Button backBtn = new Button("Back");
-        HBox hbBtn = new HBox(10);
-        hbBtn.setAlignment(Pos.BOTTOM_RIGHT);
-        hbBtn.getChildren().addAll(registerBtn, backBtn);
-        grid.add(hbBtn, 1, 4);
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton registerBtn = new JButton("Register");
+        JButton backBtn = new JButton("Back");
+        buttonPanel.add(registerBtn);
+        buttonPanel.add(backBtn);
 
-        registerBtn.setOnAction(e -> handleRegister(userTextField.getText(), pwBox.getText()));
-        backBtn.setOnAction(e -> {
-            new LoginWindow(stage, dbUrl);
+        constraints.gridx = 0;
+        constraints.gridy = 2;
+        constraints.gridwidth = 2;
+        panel.add(buttonPanel, constraints);
+
+        registerBtn.addActionListener(e -> handleRegister(userTextField.getText(), new String(pwBox.getPassword())));
+        backBtn.addActionListener(e -> {
+            new LoginWindow(dbUrl);
+            dispose();
         });
 
-        Scene scene = new Scene(grid, 300, 200);
-        stage.setScene(scene);
-        stage.show();
+        add(panel);
+        setVisible(true);
     }
 
     private void handleRegister(String username, String password) {
         if (username.isEmpty() || password.isEmpty()) {
-            showAlert(Alert.AlertType.ERROR, "Error", "Please fill all fields!");
+            showAlert("Error", "Please fill all fields!", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -76,23 +85,20 @@ public class RegisterWindow {
                 pstmt.setString(1, username);
                 pstmt.setString(2, hashPsw);
                 pstmt.executeUpdate();
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Registration Successful!");
-                new LoginWindow(stage, dbUrl);
+                showAlert("Success", "Registration Successful!", JOptionPane.INFORMATION_MESSAGE);
+                new LoginWindow(dbUrl);
+                dispose();
             }
         } catch (SQLException e) {
             if (e.getMessage().contains("UNIQUE constraint failed")) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Username already exists");
+                showAlert("Error", "Username already exists", JOptionPane.ERROR_MESSAGE);
             } else {
-                showAlert(Alert.AlertType.ERROR, "Error", e.getMessage());
+                showAlert("Error", e.getMessage(), JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-    private void showAlert(Alert.AlertType type, String title, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+    private void showAlert(String title, String content, int messageType) {
+        JOptionPane.showMessageDialog(this, content, title, messageType);
     }
 }

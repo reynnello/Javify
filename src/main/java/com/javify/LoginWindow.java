@@ -1,72 +1,80 @@
 package com.javify;
 
-import javafx.application.Application;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.stage.Stage;
 import org.mindrot.jbcrypt.BCrypt;
 
+import javax.swing.*;
+import java.awt.*;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class LoginWindow {
+public class LoginWindow extends JFrame {
     private final String dbUrl;
-    private final Stage stage;
+    private JTextField userTextField;
+    private JPasswordField pwBox;
 
-    public LoginWindow(Stage stage, String dbUrl) {
-        this.stage = stage;
+    public LoginWindow(String dbUrl) {
         this.dbUrl = dbUrl;
         initWindow();
     }
 
     private void initWindow() {
-        stage.setTitle("Login");
+        setTitle("Login");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(350, 200);
+        setLocationRelativeTo(null);
 
-        GridPane grid = new GridPane();
-        grid.setAlignment(Pos.CENTER);
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(25, 25, 25, 25));
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints constraints = new GridBagConstraints();
+        constraints.insets = new Insets(10, 10, 10, 10);
+        constraints.fill = GridBagConstraints.HORIZONTAL;
 
-        Label userName = new Label("Username:");
-        grid.add(userName, 0, 1);
+        JLabel userNameLabel = new JLabel("Username:");
+        constraints.gridx = 0;
+        constraints.gridy = 0;
+        panel.add(userNameLabel, constraints);
 
-        TextField userTextField = new TextField();
-        grid.add(userTextField, 1, 1);
+        userTextField = new JTextField(15);
+        constraints.gridx = 1;
+        constraints.gridy = 0;
+        panel.add(userTextField, constraints);
 
-        Label pw = new Label("Password:");
-        grid.add(pw, 0, 2);
+        JLabel pwLabel = new JLabel("Password:");
+        constraints.gridx = 0;
+        constraints.gridy = 1;
+        panel.add(pwLabel, constraints);
 
-        PasswordField pwBox = new PasswordField();
-        grid.add(pwBox, 1, 2);
+        pwBox = new JPasswordField(15);
+        constraints.gridx = 1;
+        constraints.gridy = 1;
+        panel.add(pwBox, constraints);
 
-        Button loginBtn = new Button("Login");
-        Button registerBtn = new Button("Register");
-        HBox hbBtn = new HBox(10);
-        hbBtn.setAlignment(Pos.BOTTOM_RIGHT);
-        hbBtn.getChildren().addAll(loginBtn, registerBtn);
-        grid.add(hbBtn, 1, 4);
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton loginBtn = new JButton("Login");
+        JButton registerBtn = new JButton("Register");
+        buttonPanel.add(loginBtn);
+        buttonPanel.add(registerBtn);
 
-        loginBtn.setOnAction(e -> handleLogin(userTextField.getText(), pwBox.getText()));
-        registerBtn.setOnAction(e -> {
-            new RegisterWindow(stage, dbUrl);
+        constraints.gridx = 0;
+        constraints.gridy = 2;
+        constraints.gridwidth = 2;
+        panel.add(buttonPanel, constraints);
+
+        loginBtn.addActionListener(e -> handleLogin(userTextField.getText(), new String(pwBox.getPassword())));
+        registerBtn.addActionListener(e -> {
+            new RegisterWindow(dbUrl);
+            dispose();
         });
 
-        Scene scene = new Scene(grid, 300, 200);
-        stage.setScene(scene);
-        stage.show();
+        add(panel);
+        setVisible(true);
     }
 
     private void handleLogin(String username, String password) {
         if (username.isEmpty() || password.isEmpty()) {
-            showAlert(Alert.AlertType.ERROR, "Error", "Please fill all fields!");
+            showAlert("Error", "Please fill all fields!", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -78,26 +86,22 @@ public class LoginWindow {
                     if (rs.next()) {
                         String hashed = rs.getString("password");
                         if (BCrypt.checkpw(password, hashed)) {
-                            showAlert(Alert.AlertType.INFORMATION, "Success", "Login Successful!");
+                            showAlert("Success", "Login Successful!", JOptionPane.INFORMATION_MESSAGE);
                             System.exit(0);
                         } else {
-                            showAlert(Alert.AlertType.ERROR, "Error", "Invalid password");
+                            showAlert("Error", "Invalid password", JOptionPane.ERROR_MESSAGE);
                         }
                     } else {
-                        showAlert(Alert.AlertType.ERROR, "Error", "User not found!");
+                        showAlert("Error", "User not found!", JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
         } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Error", e.getMessage());
+            showAlert("Error", e.getMessage(), JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private void showAlert(Alert.AlertType type, String title, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+    private void showAlert(String title, String content, int messageType) {
+        JOptionPane.showMessageDialog(this, content, title, messageType);
     }
 }
