@@ -1,3 +1,2 @@
 # Javify
---
-Music application based on Java, Swing and Sqlite
+Music application based on **Java**, **Swing** and **Sqlite**
