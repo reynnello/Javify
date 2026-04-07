@@ -1,5 +1,6 @@
 package com.javify;
 
+import com.javify.db.DatabaseManager;
 import com.javify.ui.Login;
 import javax.swing.*;
 

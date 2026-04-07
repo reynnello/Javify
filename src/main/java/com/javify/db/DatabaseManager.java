@@ -1,5 +1,9 @@
-package com.javify;
+package com.javify.db;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.*;
 
 public class DatabaseManager {
@@ -9,10 +13,11 @@ public class DatabaseManager {
 
     // initialize the database
     public static Connection getConnection() throws SQLException {
+        ensureDatabaseDirectory();
         return DriverManager.getConnection(URL);
     }
 
-    // create tables if they don't exist'
+    // create tables
     public static void initDatabase() {
         String[] tables = {
                 """
@@ -71,6 +76,21 @@ public class DatabaseManager {
             System.out.println("Database initialized at: " + DB_PATH);
         } catch (SQLException e) {
             e.printStackTrace();
+        }
+    }
+
+    // ensure the database directory exists if it doesn't exist then create the database
+    private static void ensureDatabaseDirectory() throws SQLException {
+        Path dbFile = Paths.get(DB_PATH);
+        Path parent = dbFile.getParent();
+        if (parent == null || Files.exists(parent)) {
+            return;
+        }
+
+        try {
+            Files.createDirectories(parent);
+        } catch (IOException e) {
+            throw new SQLException("Failed to create database directory: " + parent, e);
         }
     }
 }

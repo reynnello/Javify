@@ -25,7 +25,7 @@ public class UserDAO {
                 return rs.getInt("id");
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new IllegalStateException("Database error while logging in.", e);
         }
         return -1;
     }
@@ -36,41 +36,30 @@ public class UserDAO {
             return false;
         }
 
-        if (isUsernameTaken(username)) {
-            return false;
-        }
-
         // Hash the password
         String hash = BCrypt.hashpw(password, BCrypt.gensalt());
         String sql = "INSERT INTO users (username, password) VALUES (?, ?)";
         try (Connection conn = DriverManager.getConnection(dbUrl);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
+            pstmt.setString(1, username.trim());
             pstmt.setString(2, hash);
             pstmt.executeUpdate();
             return true;
         } catch (SQLException e) {
-            if (e.getMessage().contains("UNIQUE constraint failed")) return false;
-            e.printStackTrace();
-            return false;
+            if (isUniqueViolation(e)) {
+                return false;
+            }
+            throw new IllegalStateException("Database error while registering user.", e);
         }
     }
 
     // Helper methods
-    private boolean isUsernameTaken(String username) {
-        String sql = "SELECT 1 FROM users WHERE username = ? LIMIT 1";
-        try (Connection conn = DriverManager.getConnection(dbUrl);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
-            ResultSet rs = pstmt.executeQuery();
-            return rs.next();
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return true;
-        }
-    }
-
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private boolean isUniqueViolation(SQLException e) {
+        String message = e.getMessage();
+        return message != null && message.contains("UNIQUE constraint failed");
     }
 }
