@@ -1,3 +1,7 @@
+package com.javify.objects;
+
+import java.util.List;
+
 public class Playlist {
     // Playlist properties
     private int id;

@@ -1,11 +1,11 @@
 package com.javify;
 
+import com.javify.ui.Login;
 import javax.swing.*;
-import java.sql.*;
 
 public class Main {
     public static void main(String[] args) {
         DatabaseManager.initDatabase();
-        SwingUtilities.invokeLater(() -> new LoginWindow(DatabaseManager.URL));
+        SwingUtilities.invokeLater(() -> new Login(DatabaseManager.URL));
     }
 }
