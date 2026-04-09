@@ -1,3 +1,5 @@
+package com.javify.objects;
+
 public class User {
     // User properties
     private int id;
