@@ -1,5 +1,6 @@
 package com.javify.dao;
 
+import com.javify.db.DatabaseManager;
 import org.mindrot.jbcrypt.BCrypt;
 import java.sql.*;
 
@@ -61,5 +62,27 @@ public class UserDAO {
     private boolean isUniqueViolation(SQLException e) {
         String message = e.getMessage();
         return message != null && message.contains("UNIQUE constraint failed");
+    }
+
+    // change password method
+    public boolean changePassword(int userId, String oldPassword, String newPassword) {
+        String sql = "SELECT password FROM users WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next() && BCrypt.checkpw(oldPassword, rs.getString("password"))) {
+                String updateSql = "UPDATE users SET password = ? WHERE id = ?";
+                try (PreparedStatement update = conn.prepareStatement(updateSql)) {
+                    update.setString(1, BCrypt.hashpw(newPassword, BCrypt.gensalt()));
+                    update.setInt(2, userId);
+                    update.executeUpdate();
+                    return true;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 }
