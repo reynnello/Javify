@@ -1,5 +1,8 @@
 package com.javify.ui;
 
+import com.javify.AppFrame;
+import com.javify.db.DatabaseManager;
+import com.javify.objects.User;
 import com.javify.services.AuthService;
 
 import javax.swing.*;
@@ -145,6 +148,7 @@ public class Login extends JFrame {
 
     // Login logic
     private void onLogin() {
+        String dbUrl = DatabaseManager.URL;
         String username = loginUsernameField.getText().trim();
         String password = new String(loginPasswordField.getPassword());
         if (username.isEmpty() || password.trim().isEmpty()) {
@@ -180,12 +184,9 @@ public class Login extends JFrame {
             return;
         }
 
-        JOptionPane.showMessageDialog(
-                this,
-                "Login successful. User ID: " + userId,
-                "Success",
-                JOptionPane.INFORMATION_MESSAGE
-        );
+        User user = new User(userId, username);
+        dispose();
+        new AppFrame(user, dbUrl);
     }
 
     // Register logic
