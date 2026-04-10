@@ -29,42 +29,37 @@ public class UserPanel extends JPanel {
 
     private void initUi() {
         setLayout(new BorderLayout());
-        setBackground(new Color(28, 28, 28));
+        setBackground(new Color(255, 255, 255));
 
-        JPanel topBar = new JPanel(new BorderLayout());
-        topBar.setBackground(new Color(185, 99, 6));
-        topBar.setPreferredSize(new Dimension(getWidth(), 56));
-        topBar.setBorder(new EmptyBorder(8, 16, 8, 16));
+        // topbar with back button
+        JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 10));
+        topBar.setBackground(new Color(230, 153, 75));
 
         JButton backBtn = new JButton("← Back");
         backBtn.setForeground(Color.WHITE);
-        backBtn.setBackground(new Color(28, 28, 28));
+        backBtn.setBackground(new Color(102, 102, 102));
         backBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
         backBtn.setFocusPainted(false);
         backBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        backBtn.addActionListener(e -> onBack.run());
-        topBar.add(backBtn, BorderLayout.WEST);
+        backBtn.addActionListener(e -> onBack.run()); // handle back button click
+        topBar.add(backBtn);
+
         add(topBar, BorderLayout.NORTH);
 
-        JPanel content = createContentPanel();
-        JScrollPane scrollPane = new JScrollPane(content);
-        scrollPane.setBorder(null);
-        scrollPane.setBackground(new Color(18, 18, 18));
-        scrollPane.getViewport().setBackground(new Color(18, 18, 18));
-        add(scrollPane, BorderLayout.CENTER);
+        // center panel with content
+        JPanel centerWrapper = new JPanel(new GridBagLayout());
+        centerWrapper.setBackground(new Color(255, 255, 255));
+        centerWrapper.add(createContentPanel());
+
+        add(centerWrapper, BorderLayout.CENTER);
     }
 
-    // content panel
+    // create content panel
     private JPanel createContentPanel() {
-        JPanel outer = new JPanel(new GridBagLayout());
-        outer.setBackground(new Color(28, 28, 28));
-
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(new Color(18, 18, 18));
+        panel.setBackground(new Color(28, 28, 28));
         panel.setBorder(new EmptyBorder(32, 48, 32, 48));
-        panel.setMaximumSize(new Dimension(460, Integer.MAX_VALUE));
-        panel.setPreferredSize(new Dimension(460, 520));
 
         // avatar
         avatarLabel = new JLabel(generateInitialsAvatar(80));
@@ -73,6 +68,21 @@ public class UserPanel extends JPanel {
 
         panel.add(Box.createVerticalStrut(12));
 
+        // change avatar button
+        JButton changeAvatarBtn = new JButton("Change avatar");
+        changeAvatarBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        changeAvatarBtn.setForeground(new Color(255, 129, 0));
+        changeAvatarBtn.setBackground(new Color(28, 28, 28));
+        changeAvatarBtn.setBorder(BorderFactory.createLineBorder(new Color(255, 128, 0)));
+        changeAvatarBtn.setFocusPainted(false);
+        changeAvatarBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        changeAvatarBtn.addActionListener(e -> {
+            // todo: open systeme dialog to choose avatar
+        });
+        panel.add(changeAvatarBtn);
+
+        panel.add(Box.createVerticalStrut(16));
+
         // username
         JLabel usernameLabel = new JLabel(currentUser.getUsername());
         usernameLabel.setForeground(Color.WHITE);
@@ -80,42 +90,29 @@ public class UserPanel extends JPanel {
         usernameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(usernameLabel);
 
-        panel.add(Box.createVerticalStrut(16));
-
-        // change avatar button
-        JButton changeAvatarBtn = new JButton("Change avatar");
-        changeAvatarBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        changeAvatarBtn.setBackground(new Color(185, 99, 6));
-        changeAvatarBtn.setForeground(Color.WHITE);
-        changeAvatarBtn.setBorder(new EmptyBorder(5, 10, 5, 10));
-        changeAvatarBtn.setFocusPainted(false);
-        changeAvatarBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        changeAvatarBtn.addActionListener(e -> {
-            // todo: open system dialog to choose avatar
-        });
-        panel.add(changeAvatarBtn);
-
-        panel.add(Box.createVerticalStrut(16));
-
+        panel.add(Box.createVerticalStrut(32));
 
         // separator
         JSeparator sep = new JSeparator();
-        sep.setForeground(new Color(60, 60, 60));
-        sep.setMaximumSize(new Dimension(360, 1));
-        sep.setAlignmentX(Component.CENTER_ALIGNMENT);
+        sep.setForeground(new Color(0, 0, 0));
+        sep.setMaximumSize(new Dimension(320, 1));
         panel.add(sep);
 
         panel.add(Box.createVerticalStrut(24));
 
         // section: change password
-
+        JLabel pwTitle = new JLabel("Change password");
+        pwTitle.setForeground(new Color(255, 255, 255));
+        pwTitle.setFont(new Font("Sans-Serif", Font.BOLD, 13));
+        pwTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panel.add(pwTitle);
 
         panel.add(Box.createVerticalStrut(16));
 
         // password fields
-        oldPasswordField = createPasswordField();
-        newPasswordField = createPasswordField();
-        confirmPasswordField = createPasswordField();
+        oldPasswordField = createPasswordField("Current password");
+        newPasswordField = createPasswordField("New password");
+        confirmPasswordField = createPasswordField("Confirm new password");
 
         panel.add(labeledField("Current password", oldPasswordField));
         panel.add(Box.createVerticalStrut(10));
@@ -128,17 +125,16 @@ public class UserPanel extends JPanel {
         // change password button
         JButton changePasswordBtn = new JButton("Change password");
         changePasswordBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        changePasswordBtn.setBackground(new Color(185, 99, 6));
-        changePasswordBtn.setForeground(Color.WHITE);
+        changePasswordBtn.setBackground(new Color(255, 129, 0));
+        changePasswordBtn.setForeground(Color.BLACK);
         changePasswordBtn.setFont(new Font("Sans-Serif", Font.BOLD, 13));
         changePasswordBtn.setBorder(new EmptyBorder(10, 32, 10, 32));
         changePasswordBtn.setFocusPainted(false);
         changePasswordBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        changePasswordBtn.addActionListener(e -> handleChangePassword());
+        changePasswordBtn.addActionListener(e -> handleChangePassword()); // handle change password button click
         panel.add(changePasswordBtn);
 
-        outer.add(panel);
-        return outer;
+        return panel;
     }
 
     // change password logic
@@ -198,9 +194,8 @@ public class UserPanel extends JPanel {
     private JPanel labeledField(String labelText, JComponent field) {
         JPanel wrapper = new JPanel();
         wrapper.setLayout(new BoxLayout(wrapper, BoxLayout.Y_AXIS));
-        wrapper.setBackground(new Color(18, 18, 18));
-        wrapper.setMaximumSize(new Dimension(360, 64));
-        wrapper.setAlignmentX(Component.CENTER_ALIGNMENT);
+        wrapper.setBackground(new Color(28, 28, 28));
+        wrapper.setMaximumSize(new Dimension(320, 64));
 
         JLabel label = new JLabel(labelText);
         label.setForeground(new Color(160, 160, 160));
@@ -214,15 +209,15 @@ public class UserPanel extends JPanel {
         return wrapper;
     }
 
-    private JPasswordField createPasswordField() {
+    private JPasswordField createPasswordField(String placeholder) {
         JPasswordField field = new JPasswordField();
-        field.setMaximumSize(new Dimension(360, 36));
-        field.setPreferredSize(new Dimension(360, 36));
-        field.setBackground(new Color(50, 50, 50));
+        field.setMaximumSize(new Dimension(320, 36));
+        field.setPreferredSize(new Dimension(320, 36));
+        field.setBackground(new Color(102, 102, 102));
         field.setForeground(Color.WHITE);
         field.setCaretColor(Color.WHITE);
         field.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(70, 70, 70)),
+                BorderFactory.createLineBorder(new Color(132, 132, 102)),
                 new EmptyBorder(4, 10, 4, 10)
         ));
         return field;
@@ -237,7 +232,7 @@ public class UserPanel extends JPanel {
         BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D avatarGraphics = img.createGraphics();
         avatarGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        avatarGraphics.setBackground(new Color(185, 99, 6));
+        avatarGraphics.setColor(new Color(215, 129, 0));
         avatarGraphics.fillOval(0, 0, size, size);
         avatarGraphics.setColor(Color.BLACK);
         avatarGraphics.setFont(new Font("Sans-Serif", Font.BOLD, size / 2));

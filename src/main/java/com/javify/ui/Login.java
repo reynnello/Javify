@@ -215,16 +215,6 @@ public class Login extends JFrame {
             return;
         }
 
-        if (password.length() < 6) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Password must be at least 6 characters long.",
-                    "Validation",
-                    JOptionPane.WARNING_MESSAGE
-            );
-            return;
-        }
-
         boolean success;
         try {
             success = authService.register(username, password);
@@ -278,6 +268,6 @@ public class Login extends JFrame {
 
         cardLayout.show(cardsPanel, LOGIN_CARD);
         getRootPane().setDefaultButton(loginButton);
-        loginUsernameField.requestFocusInWindow();
+        loginPasswordField.requestFocusInWindow();
     }
 }

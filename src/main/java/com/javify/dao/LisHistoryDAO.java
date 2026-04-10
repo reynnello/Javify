@@ -1,6 +1,6 @@
 package com.javify.dao;
 
-import com.javify.db.DatabaseManager;
+import com.javify.DatabaseManager;
 import com.javify.objects.Track;
 
 import java.sql.*;
