@@ -18,7 +18,7 @@ public class UserDAO {
         }
 
         String sql = "SELECT id, password FROM users WHERE username = ?";
-        try (Connection conn = DriverManager.getConnection(dbUrl);
+        try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username.trim());
             ResultSet rs = pstmt.executeQuery();
@@ -40,7 +40,7 @@ public class UserDAO {
         // Hash the password
         String hash = BCrypt.hashpw(password, BCrypt.gensalt());
         String sql = "INSERT INTO users (username, password) VALUES (?, ?)";
-        try (Connection conn = DriverManager.getConnection(dbUrl);
+        try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username.trim());
             pstmt.setString(2, hash);
