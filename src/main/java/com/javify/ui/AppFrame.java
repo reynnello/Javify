@@ -22,6 +22,7 @@ public class AppFrame extends JFrame {
 
     private CardLayout cardLayout;
     private JPanel cardsPanel;
+    private LibraryPanel libraryPanel;
 
     public AppFrame(User currentUser, String dbUrl) {
         this.currentUser = currentUser;
@@ -37,10 +38,6 @@ public class AppFrame extends JFrame {
         setLocationRelativeTo(null);
 
 
-        // main window
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBackground(new Color(28, 28, 28));
-
         // top bar
         JPanel topBar = createTopBar();
         mainPanel.add(topBar, BorderLayout.NORTH);
@@ -48,17 +45,80 @@ public class AppFrame extends JFrame {
         cardLayout = new CardLayout();
         cardsPanel = new JPanel(cardLayout);
 
+        // main window
         JPanel mainWindow = new JPanel(new BorderLayout());
-        mainWindow.setBackground(new Color(28, 28, 28));
+        mainWindow.setBackground(new Color(18, 18, 18));
         mainWindow.add(createTopBar(), BorderLayout.NORTH);
+        mainWindow.add(createPlayerBar(), BorderLayout.SOUTH);  // todo: player bar
+        mainWindow.add(createContentArea(), BorderLayout.CENTER);
         cardsPanel.add(mainWindow, MAIN_CARD);
 
         UserPanel userPanel = new UserPanel(currentUser, dbUrl, () -> cardLayout.show(cardsPanel, MAIN_CARD));
         cardsPanel.add(userPanel, PROFILE_CARD);
 
         add(cardsPanel);
-
         setVisible(true);
+    }
+
+    // todo: player
+    private JPanel createPlayerBar() {
+        JPanel bar = new JPanel();
+        bar.setBackground(new Color(10, 10, 10));
+        bar.setPreferredSize(new Dimension(getWidth(), 80));
+        return bar;
+    }
+
+    // center panel
+    private JPanel createContentArea() {
+        JPanel area = new JPanel(new BorderLayout());
+        area.setBackground(new Color(18, 18, 18));
+
+        // todo: playlist columnt
+        JPanel sidebar = createSidebar();
+        area.add(sidebar, BorderLayout.WEST);
+
+        // library panel
+        libraryPanel = new LibraryPanel(currentUser, dbUrl);
+        area.add(libraryPanel, BorderLayout.CENTER);
+
+        return area;
+    }
+
+    // todo: sidebar panel
+    // for now it's just a placeholder with create playlist button
+    private JPanel createSidebar() {
+        JPanel sidebar = new JPanel(new BorderLayout());
+        sidebar.setBackground(new Color(12, 12, 12));
+        sidebar.setPreferredSize(new Dimension(220, getHeight()));
+
+        JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 10));
+        header.setBackground(new Color(12, 12, 12));
+
+        JLabel title = new JLabel("Your Library");
+        title.setForeground(Color.WHITE);
+        title.setFont(new Font("Sans-Serif", Font.BOLD, 14));
+        header.add(title);
+
+        JButton newPlaylist = new JButton("+");
+        newPlaylist.setForeground(Color.WHITE);
+        newPlaylist.setBackground(new Color(40, 40, 40));
+        newPlaylist.setBorder(new EmptyBorder(4, 10, 4, 10));
+        newPlaylist.setFocusPainted(false);
+        newPlaylist.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        newPlaylist.setToolTipText("New playlist");
+        header.add(newPlaylist);
+
+        sidebar.add(header, BorderLayout.NORTH);
+
+        // todo: playlist list
+        JPanel playlistList = new JPanel();
+        playlistList.setBackground(new Color(12, 12, 12));
+        sidebar.add(new JScrollPane(playlistList) {{
+            setBorder(null);
+            getViewport().setBackground(new Color(12, 12, 12));
+        }}, BorderLayout.CENTER);
+
+        return sidebar;
     }
 
     private JPanel createTopBar() {
