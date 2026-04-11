@@ -120,7 +120,7 @@ public class LibraryPanel extends JPanel {
         panel.add(header, BorderLayout.NORTH);
 
         // table with tracks
-        String[] columns = {"#", "Title", "Artist", "Album", "Duration"};
+        String[] columns = {"", "#", "Title", "Artist", "Album", "Duration"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
@@ -256,7 +256,6 @@ public class LibraryPanel extends JPanel {
         table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(50, 50, 50)));
 
         // wide columns
-        String[] columns = {"", "#", "Title", "Artist", "Album", "Duration"};
         table.getColumnModel().getColumn(0).setMaxWidth(44);
         table.getColumnModel().getColumn(0).setMinWidth(44);
         table.getColumnModel().getColumn(1).setMaxWidth(40);
@@ -268,8 +267,8 @@ public class LibraryPanel extends JPanel {
         centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
         centerRenderer.setBackground(new Color(18, 18, 18));
         centerRenderer.setForeground(new Color(160, 160, 160));
-        table.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
-        table.getColumnModel().getColumn(4).setCellRenderer(centerRenderer);
+        table.getColumnModel().getColumn(1).setCellRenderer(centerRenderer); // #
+        table.getColumnModel().getColumn(5).setCellRenderer(centerRenderer); // duration
 
         // cover icon renderer
         table.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
