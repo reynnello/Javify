@@ -11,6 +11,7 @@ import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
 import java.io.File;
 import java.util.List;
+import javax.swing.table.TableRowSorter;
 
 public class LibraryPanel extends JPanel {
 
@@ -243,32 +244,43 @@ public class LibraryPanel extends JPanel {
         table.setForeground(Color.WHITE);
         table.setGridColor(new Color(40, 40, 40));
         table.setRowHeight(44);
-        table.setShowVerticalLines(false);
+        table.setShowHorizontalLines(false);
+        table.setShowVerticalLines(true);
         table.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
-        table.setSelectionBackground(new Color(40, 40, 40));
+        table.setSelectionBackground(new Color(18, 18, 18));
         table.setSelectionForeground(Color.WHITE);
         table.setFillsViewportHeight(true);
+        table.setFocusable(false); // focus disabled
 
         // header
         table.getTableHeader().setBackground(new Color(18, 18, 18));
         table.getTableHeader().setForeground(new Color(160, 160, 160));
         table.getTableHeader().setFont(new Font("Sans-Serif", Font.PLAIN, 12));
         table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(50, 50, 50)));
+        table.getTableHeader().setReorderingAllowed(false);
 
-        // wide columns
+        // column widths
         table.getColumnModel().getColumn(0).setMaxWidth(44);
         table.getColumnModel().getColumn(0).setMinWidth(44);
         table.getColumnModel().getColumn(1).setMaxWidth(40);
+        table.getColumnModel().getColumn(3).setPreferredWidth(150);
+        table.getColumnModel().getColumn(4).setPreferredWidth(150);
         table.getColumnModel().getColumn(5).setMaxWidth(70);
-        table.setRowHeight(44);
 
-        // center align columns
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-        centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
-        centerRenderer.setBackground(new Color(18, 18, 18));
-        centerRenderer.setForeground(new Color(160, 160, 160));
-        table.getColumnModel().getColumn(1).setCellRenderer(centerRenderer); // #
-        table.getColumnModel().getColumn(5).setCellRenderer(centerRenderer); // duration
+        // renderers
+        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
+                super.getTableCellRendererComponent(t, value, sel, foc, row, col);
+                setHorizontalAlignment(SwingConstants.CENTER);
+                setBackground(new Color(18, 18, 18));
+                setForeground(new Color(160, 160, 160));
+                setBorder(noFocusBorder);
+                return this;
+            }
+        };
+        table.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);
+        table.getColumnModel().getColumn(5).setCellRenderer(centerRenderer);
 
         // cover icon renderer
         table.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
@@ -276,12 +288,78 @@ public class LibraryPanel extends JPanel {
             public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
                 JLabel label = new JLabel();
                 label.setHorizontalAlignment(SwingConstants.CENTER);
-                label.setBackground(sel ? new Color(40, 40, 40) : new Color(18, 18, 18));
+                label.setBackground(new Color(18, 18, 18));
                 label.setOpaque(true);
+                label.setBorder(null);
                 if (value instanceof ImageIcon icon) label.setIcon(icon);
                 return label;
             }
         });
+
+        // render plain text in other columns
+        DefaultTableCellRenderer plainRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
+                super.getTableCellRendererComponent(t, value, sel, foc, row, col);
+                setBackground(new Color(18, 18, 18));
+                setForeground(Color.WHITE);
+                setBorder(new EmptyBorder(0, 8, 0, 8));
+                return this;
+            }
+        };
+        table.getColumnModel().getColumn(2).setCellRenderer(plainRenderer); // title
+        table.getColumnModel().getColumn(3).setCellRenderer(plainRenderer); // artist
+        table.getColumnModel().getColumn(4).setCellRenderer(plainRenderer); // album
+
+        // sorter
+        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(tableModel);
+        table.setRowSorter(sorter);
+
+        // track number sort fix
+        sorter.setComparator(1, (a, b) -> Integer.compare((Integer) a, (Integer) b));
+
+        // no sort for cover icon column
+        sorter.setSortable(0, false);
+
+        // duration sort
+        sorter.setComparator(5, (a, b) -> {
+            String[] pa = a.toString().split(":");
+            String[] pb = b.toString().split(":");
+            int sa = Integer.parseInt(pa[0]) * 60 + Integer.parseInt(pa[1]);
+            int sb = Integer.parseInt(pb[0]) * 60 + Integer.parseInt(pb[1]);
+            return Integer.compare(sa, sb);
+        });
+
+        table.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override
+            // render header with sort arrows
+            public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
+                JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+                panel.setBackground(new Color(18, 18, 18));
+                panel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(50, 50, 50)));
+
+                JLabel text = new JLabel(value != null ? value.toString() : "");
+                text.setForeground(new Color(160, 160, 160));
+                text.setFont(new Font("Sans-Serif", Font.PLAIN, 12));
+                panel.add(text);
+
+                // sort arrow styled
+                RowSorter<?> rs = t.getRowSorter();
+                if (rs != null) {
+                    for (RowSorter.SortKey key : rs.getSortKeys()) {
+                        if (t.convertColumnIndexToModel(col) == key.getColumn()) {
+                            JLabel arrow = new JLabel(key.getSortOrder() == SortOrder.ASCENDING ? "↑" : "↓");
+                            arrow.setForeground(Color.WHITE);
+                            arrow.setFont(new Font("Sans-Serif", Font.BOLD, 12));
+                            panel.add(arrow);
+                            break;
+                        }
+                    }
+                }
+                return panel;
+            }
+        });
+
     }
 
     // get cover icon for a track
@@ -302,8 +380,11 @@ public class LibraryPanel extends JPanel {
         graphics.setColor(new Color(50, 50, 50));
         graphics.fillRect(0, 0, 36, 36);
         graphics.setColor(new Color(100, 100, 100));
-        graphics.setFont(new Font("Sans-Serif", Font.PLAIN, 16));
-        graphics.drawString("♪", 10, 24);
+        graphics.setFont(new Font("Sans-Serif", Font.PLAIN, 18));
+        FontMetrics metrics = graphics.getFontMetrics();
+        int x = (36 - metrics.stringWidth("♪")) / 2;
+        int y = (36 - metrics.getHeight()) / 2 + metrics.getAscent();
+        graphics.drawString("♪", x, y);
         graphics.dispose();
         return new ImageIcon(placeholder);
     }
