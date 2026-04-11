@@ -1,6 +1,7 @@
 package com.javify;
 
 import com.javify.objects.User;
+import com.javify.ui.LibraryPanel;
 import com.javify.ui.UserPanel;
 import com.javify.ui.Login;
 
@@ -37,6 +38,9 @@ public class AppFrame extends JFrame {
         setMinimumSize(new Dimension(800, 500));
         setLocationRelativeTo(null);
 
+        // main panel
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(new Color(28, 28, 28));
 
         // top bar
         JPanel topBar = createTopBar();

@@ -144,9 +144,28 @@ public class LibraryPanel extends JPanel {
 
         // scrollable table
         JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(null);
+        scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(40, 40, 40)));
         scrollPane.setBackground(new Color(18, 18, 18));
         scrollPane.getViewport().setBackground(new Color(18, 18, 18));
+
+        // hide scrollbar thumb and track color
+        scrollPane.getVerticalScrollBar().setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                thumbColor = new Color(185, 99, 6);
+                trackColor = new Color(30, 30, 30);
+            }
+            @Override
+            protected JButton createDecreaseButton(int o) { return emptyBtn(); }
+            @Override
+            protected JButton createIncreaseButton(int o) { return emptyBtn(); }
+            private JButton emptyBtn() {
+                JButton b = new JButton();
+                b.setPreferredSize(new Dimension(0, 0));
+                return b;
+            }
+        });
+
         panel.add(scrollPane, BorderLayout.CENTER);
 
         // counter label in the header
@@ -157,15 +176,26 @@ public class LibraryPanel extends JPanel {
 
     // system folder chooser
     private void openFolderChooser() {
+
+        // os specific L&F for test
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception ignored) {}
+
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         chooser.setDialogTitle("Select music folder");
 
         int result = chooser.showOpenDialog(this);
+
+        // return to default L&F
+        try {
+            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+        } catch (Exception ignored) {}
+
         if (result == JFileChooser.APPROVE_OPTION) {
             File folder = chooser.getSelectedFile();
             List<Track> tracks = libraryService.scanFolder(folder);
-            // if no tracks found, show a message
             if (tracks.isEmpty()) {
                 JOptionPane.showMessageDialog(this,
                         "No MP3, WAV or FLAC files found in this folder.",
@@ -184,7 +214,9 @@ public class LibraryPanel extends JPanel {
         // loop through all tracks and add them to the table
         for (int i = 0; i < tracks.size(); i++) {
             Track t = tracks.get(i);
+            ImageIcon cover = getCoverIcon(t);
             tableModel.addRow(new Object[]{
+                    cover,
                     i + 1,
                     t.getTitle(),
                     t.getArtist() != null ? t.getArtist() : "—",
@@ -224,8 +256,12 @@ public class LibraryPanel extends JPanel {
         table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(50, 50, 50)));
 
         // wide columns
-        table.getColumnModel().getColumn(0).setMaxWidth(40);   // #
-        table.getColumnModel().getColumn(4).setMaxWidth(70);   // duration
+        String[] columns = {"", "#", "Title", "Artist", "Album", "Duration"};
+        table.getColumnModel().getColumn(0).setMaxWidth(44);
+        table.getColumnModel().getColumn(0).setMinWidth(44);
+        table.getColumnModel().getColumn(1).setMaxWidth(40);
+        table.getColumnModel().getColumn(5).setMaxWidth(70);
+        table.setRowHeight(44);
 
         // center align columns
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
@@ -234,6 +270,43 @@ public class LibraryPanel extends JPanel {
         centerRenderer.setForeground(new Color(160, 160, 160));
         table.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
         table.getColumnModel().getColumn(4).setCellRenderer(centerRenderer);
+
+        // cover icon renderer
+        table.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
+                JLabel label = new JLabel();
+                label.setHorizontalAlignment(SwingConstants.CENTER);
+                label.setBackground(sel ? new Color(40, 40, 40) : new Color(18, 18, 18));
+                label.setOpaque(true);
+                if (value instanceof ImageIcon icon) label.setIcon(icon);
+                return label;
+            }
+        });
+    }
+
+    // get cover icon for a track
+    private ImageIcon getCoverIcon(Track track) {
+        if (track.getCoverData() != null) {
+            try {
+                java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(track.getCoverData());
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bis);
+                if (img != null) {
+                    Image scaled = img.getScaledInstance(36, 36, Image.SCALE_SMOOTH);
+                    return new ImageIcon(scaled);
+                }
+            } catch (Exception ignored) {}
+        }
+        // placeholder icon if cover is not available
+        java.awt.image.BufferedImage placeholder = new java.awt.image.BufferedImage(36, 36, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = placeholder.createGraphics();
+        graphics.setColor(new Color(50, 50, 50));
+        graphics.fillRect(0, 0, 36, 36);
+        graphics.setColor(new Color(100, 100, 100));
+        graphics.setFont(new Font("Sans-Serif", Font.PLAIN, 16));
+        graphics.drawString("♪", 10, 24);
+        graphics.dispose();
+        return new ImageIcon(placeholder);
     }
 
     // format duration in mm:ss format
