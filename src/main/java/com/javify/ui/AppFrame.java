@@ -34,7 +34,7 @@ public class AppFrame extends JFrame {
     private void initWindow() {
         setTitle("Javify");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1100, 700);
+        setSize(1600, 900);
         setMinimumSize(new Dimension(800, 500));
         setLocationRelativeTo(null);
 
