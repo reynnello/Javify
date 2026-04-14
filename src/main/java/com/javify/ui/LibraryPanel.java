@@ -3,6 +3,7 @@ package com.javify.ui;
 import com.javify.objects.Track;
 import com.javify.objects.User;
 import com.javify.services.LibraryService;
+import com.javify.services.PlayerService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -17,6 +18,7 @@ public class LibraryPanel extends JPanel {
 
     private final User currentUser;
     private final LibraryService libraryService;
+    private final PlayerService playerService;
     private final CardLayout cardLayout;
     private final JPanel cards;
 
@@ -29,6 +31,7 @@ public class LibraryPanel extends JPanel {
     public LibraryPanel(User currentUser, String dbUrl) {
         this.currentUser = currentUser;
         this.libraryService = new LibraryService();
+        this.playerService = new PlayerService();
         this.cardLayout = new CardLayout();
         this.cards = new JPanel(cardLayout);
 
@@ -134,10 +137,9 @@ public class LibraryPanel extends JPanel {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
                 if (e.getClickCount() == 2) {
-                    int row = table.getSelectedRow();
+                    int row = table.convertRowIndexToModel(table.getSelectedRow());
                     if (row >= 0 && currentTracks != null) {
-                        Track track = currentTracks.get(row);
-                        System.out.println("Play: " + track.getTitle()); // todo: fix when player is ready
+                        playerService.setQueue(currentTracks, row);
                     }
                 }
             }
