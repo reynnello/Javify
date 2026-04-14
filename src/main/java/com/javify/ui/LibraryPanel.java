@@ -16,8 +16,8 @@ import javax.swing.table.TableRowSorter;
 
 public class LibraryPanel extends JPanel {
 
-    private static final int TRACK_ROW_HEIGHT = 50;
-    private static final int COVER_SIZE = 42;
+    private static final int TRACK_ROW_HEIGHT = 56;
+    private static final int COVER_SIZE = 46;
 
     private final User currentUser;
     private final LibraryService libraryService;
@@ -128,7 +128,7 @@ public class LibraryPanel extends JPanel {
         panel.add(header, BorderLayout.NORTH);
 
         // table with tracks
-        String[] columns = {"", "#", "Title", "Artist", "Album", "Duration"};
+        String[] columns = {"", "", "Title", "Artist", "Album", "Duration"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
@@ -169,6 +169,7 @@ public class LibraryPanel extends JPanel {
             }
         });
 
+        // hover icon on table row
         table.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
             @Override
             public void mouseMoved(java.awt.event.MouseEvent e) {
@@ -262,8 +263,8 @@ public class LibraryPanel extends JPanel {
             Track t = tracks.get(i);
             ImageIcon cover = getCoverIcon(t);
             tableModel.addRow(new Object[]{
-                    cover,
                     i + 1,
+                    cover,
                     t.getTitle(),
                     t.getArtist() != null ? t.getArtist() : "—",
                     t.getAlbum() != null ? t.getAlbum() : "—",
@@ -290,7 +291,7 @@ public class LibraryPanel extends JPanel {
         table.setGridColor(new Color(40, 40, 40));
         table.setRowHeight(TRACK_ROW_HEIGHT);
         table.setShowHorizontalLines(false);
-        table.setShowVerticalLines(true);
+        table.setShowVerticalLines(false);
         table.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
         table.setSelectionBackground(new Color(18, 18, 18));
         table.setSelectionForeground(Color.WHITE);
@@ -305,34 +306,63 @@ public class LibraryPanel extends JPanel {
         table.getTableHeader().setReorderingAllowed(false);
 
         // column widths
-        table.getColumnModel().getColumn(0).setMaxWidth(50);
-        table.getColumnModel().getColumn(0).setMinWidth(50);
-        table.getColumnModel().getColumn(1).setMaxWidth(40);
+        table.getColumnModel().getColumn(0).setMaxWidth(54);
+        table.getColumnModel().getColumn(0).setMinWidth(54);
+        table.getColumnModel().getColumn(1).setMaxWidth(56);
+        table.getColumnModel().getColumn(1).setMinWidth(56);
         table.getColumnModel().getColumn(3).setPreferredWidth(150);
         table.getColumnModel().getColumn(4).setPreferredWidth(150);
         table.getColumnModel().getColumn(5).setMaxWidth(70);
 
         // renderers
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer() {
+        DefaultTableCellRenderer numberRenderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
                 super.getTableCellRendererComponent(t, value, sel, foc, row, col);
                 setHorizontalAlignment(SwingConstants.CENTER);
-                setBackground(new Color(18, 18, 18));
-                setForeground(new Color(160, 160, 160));
+                int modelRow = t.convertRowIndexToModel(row);
+                boolean isCurrent = isCurrentTrackAtModelRow(modelRow);
+                boolean showControl = row == hoveredViewRow || isCurrent;
+
+                if (showControl) {
+                    boolean showPause = isCurrent && playerService.getState() == PlayerService.State.PLAYING;
+                    setText(showPause ? "❚❚" : "▶");
+                    setForeground(new Color(18, 18, 18));
+                    setBackground(new Color(185, 99, 6));
+                    setFont(new Font("Sans-Serif", Font.BOLD, 14));
+                } else {
+                    setText(value != null ? value.toString() : "");
+                    setForeground(new Color(160, 160, 160));
+                    setBackground(getRowBackground(row));
+                    setFont(new Font("Sans-Serif", Font.PLAIN, 13));
+                }
                 setBorder(noFocusBorder);
                 return this;
             }
         };
-        table.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);
-        table.getColumnModel().getColumn(5).setCellRenderer(centerRenderer);
+        table.getColumnModel().getColumn(0).setCellRenderer(numberRenderer);
+
+        // duration column
+        DefaultTableCellRenderer durationRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
+                super.getTableCellRendererComponent(t, value, sel, foc, row, col);
+                setHorizontalAlignment(SwingConstants.CENTER);
+                setBackground(getRowBackground(row));
+                setForeground(new Color(160, 160, 160));
+                setBorder(noFocusBorder);
+                setFont(new Font("Sans-Serif", Font.PLAIN, 13));
+                return this;
+            }
+        };
+        table.getColumnModel().getColumn(5).setCellRenderer(durationRenderer);
 
         // cover icon renderer
-        table.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
+        table.getColumnModel().getColumn(1).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
                 JPanel container = new JPanel(new GridBagLayout());
-                container.setBackground(new Color(18, 18, 18));
+                container.setBackground(getRowBackground(row));
 
                 JLabel label = new JLabel();
                 label.setHorizontalAlignment(SwingConstants.CENTER);
@@ -340,27 +370,12 @@ public class LibraryPanel extends JPanel {
                 label.setPreferredSize(new Dimension(COVER_SIZE, COVER_SIZE));
                 label.setOpaque(true);
 
-                int modelRow = t.convertRowIndexToModel(row);
-                boolean isCurrent = isCurrentTrackAtModelRow(modelRow);
-                boolean showControl = row == hoveredViewRow || isCurrent;
-
-                // if hovered or current, show play/pause icon instead of cover
-                if (showControl) {
-                    boolean showPause = isCurrent && playerService.getState() == PlayerService.State.PLAYING;
-
-                    label.setBackground(new Color(185, 99, 6));
-                    label.setForeground(new Color(18, 18, 18));
-                    label.setFont(new Font("Sans-Serif", Font.BOLD, 16));
-                    label.setText(showPause ? "II" : "▶");
-                    label.setIcon(null);
+                label.setBackground(getRowBackground(row));
+                label.setText("");
+                if (value instanceof ImageIcon icon) {
+                    label.setIcon(icon);
                 } else {
-                    label.setBackground(new Color(18, 18, 18));
-                    label.setText("");
-                    if (value instanceof ImageIcon icon) {
-                        label.setIcon(icon);
-                    } else {
-                        label.setIcon(null);
-                    }
+                    label.setIcon(null);
                 }
 
                 container.add(label);
@@ -373,7 +388,7 @@ public class LibraryPanel extends JPanel {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
                 super.getTableCellRendererComponent(t, value, sel, foc, row, col);
-                setBackground(new Color(18, 18, 18));
+                setBackground(getRowBackground(row));
                 setForeground(Color.WHITE);
                 setBorder(new EmptyBorder(0, 8, 0, 8));
                 return this;
@@ -388,10 +403,10 @@ public class LibraryPanel extends JPanel {
         table.setRowSorter(sorter);
 
         // track number sort fix
-        sorter.setComparator(1, (a, b) -> Integer.compare((Integer) a, (Integer) b));
+        sorter.setComparator(0, (a, b) -> Integer.compare((Integer) a, (Integer) b));
 
         // no sort for cover icon column
-        sorter.setSortable(0, false);
+        sorter.setSortable(1, false);
 
         // duration sort
         sorter.setComparator(5, (a, b) -> {
@@ -432,6 +447,10 @@ public class LibraryPanel extends JPanel {
             }
         });
 
+    }
+
+    private Color getRowBackground(int viewRow) {
+        return viewRow == hoveredViewRow ? new Color(34, 34, 34) : new Color(18, 18, 18);
     }
 
     private void togglePlaybackAtRow(int modelRow) {
