@@ -85,4 +85,29 @@ public class UserDAO {
         }
         return false;
     }
+
+    // avatar methods
+    public boolean updateAvatar(int userId, byte[] avatarData) {
+        String sql = "UPDATE users SET avatar_data = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setBytes(1, avatarData);
+            pstmt.setInt(2, userId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Database error while updating avatar.", e);
+        }
+    }
+
+    public byte[] getAvatarData(int userId) {
+        String sql = "SELECT avatar_data FROM users WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? rs.getBytes("avatar_data") : null;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Database error while loading avatar.", e);
+        }
+    }
 }

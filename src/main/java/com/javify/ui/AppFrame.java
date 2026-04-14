@@ -1,5 +1,6 @@
 package com.javify.ui;
 
+import com.javify.dao.UserDAO;
 import com.javify.objects.User;
 import com.javify.services.PlayerService;
 
@@ -8,6 +9,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import javax.imageio.ImageIO;
 
@@ -23,11 +25,14 @@ public class AppFrame extends JFrame {
     private JPanel cardsPanel;
     private LibraryPanel libraryPanel;
     private final PlayerService playerService;
+    private final UserDAO userDAO;
+    private JLabel topAvatarLabel;
 
     public AppFrame(User currentUser, String dbUrl) {
         this.currentUser = currentUser;
         this.dbUrl = dbUrl;
         this.playerService = new PlayerService();
+        this.userDAO = new UserDAO(dbUrl);
         initWindow();
     }
 
@@ -57,7 +62,12 @@ public class AppFrame extends JFrame {
         mainWindow.add(createContentArea(), BorderLayout.CENTER);
         cardsPanel.add(mainWindow, MAIN_CARD);
 
-        UserPanel userPanel = new UserPanel(currentUser, dbUrl, () -> cardLayout.show(cardsPanel, MAIN_CARD));
+        UserPanel userPanel = new UserPanel(
+                currentUser,
+                dbUrl,
+                () -> cardLayout.show(cardsPanel, MAIN_CARD),
+                this::refreshTopAvatar
+        );
         cardsPanel.add(userPanel, PROFILE_CARD);
 
         add(cardsPanel);
@@ -155,8 +165,8 @@ public class AppFrame extends JFrame {
 
         // user avatar
         ImageIcon avatar = loadAvatar();
-        JLabel avatarLabel = new JLabel(avatar);
-        btn.add(avatarLabel);
+        topAvatarLabel = new JLabel(avatar);
+        btn.add(topAvatarLabel);
 
         // username
         JLabel nameLabel = new JLabel(currentUser.getUsername());
@@ -230,23 +240,33 @@ public class AppFrame extends JFrame {
     // load avatar from file todo: fix, not working
     private ImageIcon loadAvatar() {
         try {
-            var stream = getClass().getResourceAsStream("src/main/resources/com/javify/avatars/avatar.png");
-            if (stream != null) {
-                BufferedImage img = ImageIO.read(stream);
-                // circle avatar
-                BufferedImage circle = new BufferedImage(28, 28, BufferedImage.TYPE_INT_ARGB);
-                Graphics2D avatarGraphics = circle.createGraphics();
-                avatarGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                avatarGraphics.setClip(new Ellipse2D.Float(0, 0, 28, 28));
-                avatarGraphics.drawImage(img.getScaledInstance(28, 28, Image.SCALE_SMOOTH), 0, 0, null);
-                avatarGraphics.dispose();
-                return new ImageIcon(circle);
+            byte[] avatarData = userDAO.getAvatarData(currentUser.getId());
+            if (avatarData != null && avatarData.length > 0) {
+                BufferedImage img = ImageIO.read(new ByteArrayInputStream(avatarData));
+                if (img != null) {
+                    // circle avatar
+                    BufferedImage circle = new BufferedImage(28, 28, BufferedImage.TYPE_INT_ARGB);
+                    Graphics2D avatarGraphics = circle.createGraphics();
+                    avatarGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    avatarGraphics.setClip(new Ellipse2D.Float(0, 0, 28, 28));
+                    avatarGraphics.drawImage(img.getScaledInstance(28, 28, Image.SCALE_SMOOTH), 0, 0, null);
+                    avatarGraphics.dispose();
+                    return new ImageIcon(circle);
+                }
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IllegalStateException | IOException ignored) {
         }
         // if there is no avatar image, generate a default one
         return generateInitialsAvatar();
+    }
+
+    // refresh top avatar in the user button
+    private void refreshTopAvatar() {
+        if (topAvatarLabel != null) {
+            topAvatarLabel.setIcon(loadAvatar());
+            topAvatarLabel.revalidate();
+            topAvatarLabel.repaint();
+        }
     }
 
     // generate a default avatar image with initials

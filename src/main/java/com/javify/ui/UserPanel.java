@@ -3,27 +3,35 @@ package com.javify.ui;
 import com.javify.dao.UserDAO;
 import com.javify.objects.User;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
 
 public class UserPanel extends JPanel {
+
+    private static final int AVATAR_SIZE = 80;
 
     private final User currentUser;
     private final UserDAO userDAO;
     private final Runnable onBack;
+    private final Runnable onAvatarChanged;
 
     private JLabel avatarLabel;
     private JPasswordField oldPasswordField;
     private JPasswordField newPasswordField;
     private JPasswordField confirmPasswordField;
 
-    public UserPanel(User currentUser, String dbUrl, Runnable onBack) {
+    public UserPanel(User currentUser, String dbUrl, Runnable onBack, Runnable onAvatarChanged) {
         this.currentUser = currentUser;
         this.userDAO = new UserDAO(dbUrl);
         this.onBack = onBack;
+        this.onAvatarChanged = onAvatarChanged;
         initUi();
     }
 
@@ -67,7 +75,7 @@ public class UserPanel extends JPanel {
         panel.setPreferredSize(new Dimension(460, 520));
 
         // avatar
-        avatarLabel = new JLabel(generateInitialsAvatar(80));
+        avatarLabel = new JLabel(loadUserAvatar());
         avatarLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(avatarLabel);
 
@@ -90,9 +98,7 @@ public class UserPanel extends JPanel {
         changeAvatarBtn.setBorder(new EmptyBorder(5, 10, 5, 10));
         changeAvatarBtn.setFocusPainted(false);
         changeAvatarBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        changeAvatarBtn.addActionListener(e -> {
-            // todo: open system dialog to choose avatar
-        });
+        changeAvatarBtn.addActionListener(e -> handleChangeAvatar());
         panel.add(changeAvatarBtn);
 
         panel.add(Box.createVerticalStrut(16));
@@ -230,6 +236,105 @@ public class UserPanel extends JPanel {
 
     private void showError(String message) {
         JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private void handleChangeAvatar() {
+        File selectedImage = chooseAvatarFile();
+        if (selectedImage == null) {
+            return;
+        }
+
+        try {
+            BufferedImage source = ImageIO.read(selectedImage);
+            if (source == null) {
+                showError("Selected file is not a supported image.");
+                return;
+            }
+
+            BufferedImage avatarImage = createCircularAvatarImage(source, AVATAR_SIZE);
+            byte[] avatarBytes = toPngBytes(avatarImage);
+            boolean saved = userDAO.updateAvatar(currentUser.getId(), avatarBytes);
+            if (!saved) {
+                showError("Unable to save avatar.");
+                return;
+            }
+
+            avatarLabel.setIcon(new ImageIcon(avatarImage));
+            avatarLabel.revalidate();
+            avatarLabel.repaint();
+            if (onAvatarChanged != null) {
+                onAvatarChanged.run();
+            }
+        } catch (IllegalStateException ex) {
+            showError("Unable to save avatar.");
+        } catch (IOException ex) {
+            showError("Unable to open selected image.");
+        }
+    }
+
+    private File chooseAvatarFile() {
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        if (owner instanceof Frame frameOwner) {
+            FileDialog dialog = new FileDialog(frameOwner, "Choose avatar", FileDialog.LOAD);
+            dialog.setFilenameFilter((dir, name) -> {
+                String lower = name.toLowerCase();
+                return lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg");
+            });
+            dialog.setVisible(true);
+
+            if (dialog.getFile() == null) {
+                return null;
+            }
+            return new File(dialog.getDirectory(), dialog.getFile());
+        }
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Choose avatar");
+        chooser.setAcceptAllFileFilterUsed(false);
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                "Image files (*.png, *.jpg, *.jpeg)", "png", "jpg", "jpeg"
+        ));
+        return chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
+    }
+
+    // create circular avatar from a square image
+    private BufferedImage createCircularAvatarImage(BufferedImage source, int size) {
+        int side = Math.min(source.getWidth(), source.getHeight());
+        int x = (source.getWidth() - side) / 2;
+        int y = (source.getHeight() - side) / 2;
+
+        BufferedImage square = source.getSubimage(x, y, side, side);
+        Image scaled = square.getScaledInstance(size, size, Image.SCALE_SMOOTH);
+
+        BufferedImage circle = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D avatarGraphics = circle.createGraphics();
+        avatarGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        avatarGraphics.setClip(new Ellipse2D.Float(0, 0, size, size));
+        avatarGraphics.drawImage(scaled, 0, 0, null);
+        avatarGraphics.dispose();
+        return circle;
+    }
+
+    // convert BufferedImage to byte array
+    private byte[] toPngBytes(BufferedImage image) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", output);
+        return output.toByteArray();
+    }
+
+    // load user avatar
+    private ImageIcon loadUserAvatar() {
+        try {
+            byte[] avatarData = userDAO.getAvatarData(currentUser.getId());
+            if (avatarData == null || avatarData.length == 0) {
+                return generateInitialsAvatar(AVATAR_SIZE);
+            }
+
+            BufferedImage image = ImageIO.read(new java.io.ByteArrayInputStream(avatarData));
+            return image != null ? new ImageIcon(image) : generateInitialsAvatar(AVATAR_SIZE);
+        } catch (Exception ignored) {
+            return generateInitialsAvatar(AVATAR_SIZE);
+        }
     }
 
     // generate initials avatar
