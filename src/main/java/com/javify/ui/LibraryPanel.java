@@ -292,6 +292,9 @@ public class LibraryPanel extends JPanel {
         table.setRowHeight(TRACK_ROW_HEIGHT);
         table.setShowHorizontalLines(false);
         table.setShowVerticalLines(false);
+        // Remove any LAF-specific gaps that look like column separators.
+        table.setIntercellSpacing(new Dimension(0, 0));
+        table.getColumnModel().setColumnMargin(0);
         table.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
         table.setSelectionBackground(new Color(18, 18, 18));
         table.setSelectionForeground(Color.WHITE);
