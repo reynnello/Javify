@@ -1,9 +1,7 @@
-package com.javify;
+package com.javify.ui;
 
 import com.javify.objects.User;
-import com.javify.ui.LibraryPanel;
-import com.javify.ui.UserPanel;
-import com.javify.ui.Login;
+import com.javify.services.PlayerService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -24,10 +22,12 @@ public class AppFrame extends JFrame {
     private CardLayout cardLayout;
     private JPanel cardsPanel;
     private LibraryPanel libraryPanel;
+    private final PlayerService playerService;
 
     public AppFrame(User currentUser, String dbUrl) {
         this.currentUser = currentUser;
         this.dbUrl = dbUrl;
+        this.playerService = new PlayerService();
         initWindow();
     }
 
@@ -82,7 +82,7 @@ public class AppFrame extends JFrame {
         area.add(sidebar, BorderLayout.WEST);
 
         // library panel
-        libraryPanel = new LibraryPanel(currentUser, dbUrl);
+        libraryPanel = new LibraryPanel(currentUser, playerService);
         area.add(libraryPanel, BorderLayout.CENTER);
 
         return area;

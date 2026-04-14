@@ -16,6 +16,9 @@ import javax.swing.table.TableRowSorter;
 
 public class LibraryPanel extends JPanel {
 
+    private static final int TRACK_ROW_HEIGHT = 50;
+    private static final int COVER_SIZE = 42;
+
     private final User currentUser;
     private final LibraryService libraryService;
     private final PlayerService playerService;
@@ -24,14 +27,15 @@ public class LibraryPanel extends JPanel {
 
     private DefaultTableModel tableModel;
     private List<Track> currentTracks;
+    private int hoveredViewRow = -1;
 
     private static final String EMPTY_CARD = "empty";
     private static final String LIBRARY_CARD = "library";
 
-    public LibraryPanel(User currentUser, String dbUrl) {
+    public LibraryPanel(User currentUser, PlayerService playerService) {
         this.currentUser = currentUser;
         this.libraryService = new LibraryService();
-        this.playerService = new PlayerService();
+        this.playerService = playerService;
         this.cardLayout = new CardLayout();
         this.cards = new JPanel(cardLayout);
 
@@ -136,14 +140,53 @@ public class LibraryPanel extends JPanel {
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
-                if (e.getClickCount() == 2) {
-                    int row = table.convertRowIndexToModel(table.getSelectedRow());
-                    if (row >= 0 && currentTracks != null) {
-                        playerService.setQueue(currentTracks, row);
-                    }
+                int viewRow = table.rowAtPoint(e.getPoint());
+                if (viewRow < 0 || currentTracks == null) {
+                    return;
+                }
+                int modelRow = table.convertRowIndexToModel(viewRow);
+                int viewCol = table.columnAtPoint(e.getPoint());
+
+                // single click on cover cell toggles play/pause for that row
+                if (e.getClickCount() == 1 && viewCol == 0) {
+                    togglePlaybackAtRow(modelRow);
+                    table.repaint();
+                    return;
+                }
+
+                // keep double-click behavior for starting selected track
+                if (e.getClickCount() == 2 && modelRow >= 0) {
+                    playerService.setQueue(currentTracks, modelRow);
+                    table.repaint();
                 }
             }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                hoveredViewRow = -1;
+                table.setCursor(Cursor.getDefaultCursor());
+                table.repaint();
+            }
         });
+
+        table.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(java.awt.event.MouseEvent e) {
+                int row = table.rowAtPoint(e.getPoint());
+                int col = table.columnAtPoint(e.getPoint());
+                if (hoveredViewRow != row) {
+                    hoveredViewRow = row;
+                    table.repaint();
+                }
+                table.setCursor(col == 0 && row >= 0
+                        ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+                        : Cursor.getDefaultCursor());
+            }
+        });
+
+        // repaint hover icon when player state/current track changes
+        playerService.setOnStateChanged(state -> SwingUtilities.invokeLater(table::repaint));
+        playerService.setOnTrackChanged(track -> SwingUtilities.invokeLater(table::repaint));
 
         // scrollable table
         JScrollPane scrollPane = new JScrollPane(table);
@@ -245,7 +288,7 @@ public class LibraryPanel extends JPanel {
         table.setBackground(new Color(18, 18, 18));
         table.setForeground(Color.WHITE);
         table.setGridColor(new Color(40, 40, 40));
-        table.setRowHeight(44);
+        table.setRowHeight(TRACK_ROW_HEIGHT);
         table.setShowHorizontalLines(false);
         table.setShowVerticalLines(true);
         table.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
@@ -262,8 +305,8 @@ public class LibraryPanel extends JPanel {
         table.getTableHeader().setReorderingAllowed(false);
 
         // column widths
-        table.getColumnModel().getColumn(0).setMaxWidth(44);
-        table.getColumnModel().getColumn(0).setMinWidth(44);
+        table.getColumnModel().getColumn(0).setMaxWidth(50);
+        table.getColumnModel().getColumn(0).setMinWidth(50);
         table.getColumnModel().getColumn(1).setMaxWidth(40);
         table.getColumnModel().getColumn(3).setPreferredWidth(150);
         table.getColumnModel().getColumn(4).setPreferredWidth(150);
@@ -288,13 +331,40 @@ public class LibraryPanel extends JPanel {
         table.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
+                JPanel container = new JPanel(new GridBagLayout());
+                container.setBackground(new Color(18, 18, 18));
+
                 JLabel label = new JLabel();
                 label.setHorizontalAlignment(SwingConstants.CENTER);
-                label.setBackground(new Color(18, 18, 18));
+                label.setVerticalAlignment(SwingConstants.CENTER);
+                label.setPreferredSize(new Dimension(COVER_SIZE, COVER_SIZE));
                 label.setOpaque(true);
-                label.setBorder(null);
-                if (value instanceof ImageIcon icon) label.setIcon(icon);
-                return label;
+
+                int modelRow = t.convertRowIndexToModel(row);
+                boolean isCurrent = isCurrentTrackAtModelRow(modelRow);
+                boolean showControl = row == hoveredViewRow || isCurrent;
+
+                // if hovered or current, show play/pause icon instead of cover
+                if (showControl) {
+                    boolean showPause = isCurrent && playerService.getState() == PlayerService.State.PLAYING;
+
+                    label.setBackground(new Color(185, 99, 6));
+                    label.setForeground(new Color(18, 18, 18));
+                    label.setFont(new Font("Sans-Serif", Font.BOLD, 16));
+                    label.setText(showPause ? "II" : "▶");
+                    label.setIcon(null);
+                } else {
+                    label.setBackground(new Color(18, 18, 18));
+                    label.setText("");
+                    if (value instanceof ImageIcon icon) {
+                        label.setIcon(icon);
+                    } else {
+                        label.setIcon(null);
+                    }
+                }
+
+                container.add(label);
+                return container;
             }
         });
 
@@ -364,6 +434,40 @@ public class LibraryPanel extends JPanel {
 
     }
 
+    private void togglePlaybackAtRow(int modelRow) {
+        if (currentTracks == null || modelRow < 0 || modelRow >= currentTracks.size()) {
+            return;
+        }
+
+        Track clickedTrack = currentTracks.get(modelRow);
+        Track currentTrack = playerService.getCurrentTrack();
+        boolean sameTrack = currentTrack != null && currentTrack.getId() == clickedTrack.getId();
+
+        if (!sameTrack) {
+            playerService.setQueue(currentTracks, modelRow);
+            return;
+        }
+
+        if (playerService.getState() == PlayerService.State.PLAYING) {
+            playerService.pause();
+        } else if (playerService.getState() == PlayerService.State.PAUSED) {
+            playerService.play();
+        } else {
+            playerService.setQueue(currentTracks, modelRow);
+        }
+    }
+
+    private boolean isCurrentTrackAtModelRow(int modelRow) {
+        if (currentTracks == null || modelRow < 0 || modelRow >= currentTracks.size()) {
+            return false;
+        }
+        Track current = playerService.getCurrentTrack();
+        if (current == null) {
+            return false;
+        }
+        return current.getId() == currentTracks.get(modelRow).getId();
+    }
+
     // get cover icon for a track
     private ImageIcon getCoverIcon(Track track) {
         if (track.getCoverData() != null) {
@@ -371,21 +475,21 @@ public class LibraryPanel extends JPanel {
                 java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(track.getCoverData());
                 java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bis);
                 if (img != null) {
-                    Image scaled = img.getScaledInstance(36, 36, Image.SCALE_SMOOTH);
+                    Image scaled = img.getScaledInstance(COVER_SIZE, COVER_SIZE, Image.SCALE_SMOOTH);
                     return new ImageIcon(scaled);
                 }
             } catch (Exception ignored) {}
         }
         // placeholder icon if cover is not available
-        java.awt.image.BufferedImage placeholder = new java.awt.image.BufferedImage(36, 36, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.image.BufferedImage placeholder = new java.awt.image.BufferedImage(COVER_SIZE, COVER_SIZE, java.awt.image.BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = placeholder.createGraphics();
         graphics.setColor(new Color(50, 50, 50));
-        graphics.fillRect(0, 0, 36, 36);
+        graphics.fillRect(0, 0, COVER_SIZE, COVER_SIZE);
         graphics.setColor(new Color(100, 100, 100));
-        graphics.setFont(new Font("Sans-Serif", Font.PLAIN, 18));
+        graphics.setFont(new Font("Sans-Serif", Font.PLAIN, 20));
         FontMetrics metrics = graphics.getFontMetrics();
-        int x = (36 - metrics.stringWidth("♪")) / 2;
-        int y = (36 - metrics.getHeight()) / 2 + metrics.getAscent();
+        int x = (COVER_SIZE - metrics.stringWidth("♪")) / 2;
+        int y = (COVER_SIZE - metrics.getHeight()) / 2 + metrics.getAscent();
         graphics.drawString("♪", x, y);
         graphics.dispose();
         return new ImageIcon(placeholder);

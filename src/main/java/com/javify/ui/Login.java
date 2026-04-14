@@ -1,6 +1,5 @@
 package com.javify.ui;
 
-import com.javify.AppFrame;
 import com.javify.db.DatabaseManager;
 import com.javify.objects.User;
 import com.javify.services.AuthService;
