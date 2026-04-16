@@ -177,6 +177,33 @@ public class AppFrame extends JFrame {
         searchField.setCaretColor(Color.WHITE);
         searchField.setBorder(new EmptyBorder(10, 14, 10, 14));
         searchField.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
+
+        // clear button
+        JButton clearBtn = new JButton("✕");
+        clearBtn.setVisible(false);
+        clearBtn.setForeground(new Color(190, 190, 190));
+        clearBtn.setFont(new Font("Sans-Serif", Font.BOLD, 12));
+        clearBtn.setBackground(new Color(0, 0, 0, 0));
+        clearBtn.setBorder(new EmptyBorder(0, 8, 0, 10));
+        clearBtn.setBorderPainted(false);
+        clearBtn.setContentAreaFilled(false);
+        clearBtn.setFocusPainted(false);
+        clearBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        clearBtn.addActionListener(e -> {
+            searchField.setText("");
+            searchField.setText("Search...");
+            searchField.setForeground(new Color(200, 200, 200));
+            clearBtn.setVisible(false);
+            if (libraryPanel != null) {
+                libraryPanel.search("");
+            }
+        });
+
+        Runnable updateClearButtonVisibility = () -> {
+            String text = searchField.getText();
+            boolean hasQuery = text != null && !text.isBlank() && !text.equals("Search...");
+            clearBtn.setVisible(hasQuery);
+        };
         // placeholder
         searchField.setText("Search...");
         searchField.setForeground(new Color(200, 200, 200));
@@ -186,21 +213,25 @@ public class AppFrame extends JFrame {
                     searchField.setText("");
                     searchField.setForeground(Color.WHITE);
                 }
+                updateClearButtonVisibility.run();
             }
             @Override public void focusLost(java.awt.event.FocusEvent e) {
                 if (searchField.getText().isEmpty()) {
                     searchField.setText("Search...");
                     searchField.setForeground(new Color(200, 200, 200));
                 }
+                updateClearButtonVisibility.run();
             }
         });
         // live search
         searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             @Override public void insertUpdate(javax.swing.event.DocumentEvent e) {
                 doSearch();
+                updateClearButtonVisibility.run();
             }
             @Override public void removeUpdate(javax.swing.event.DocumentEvent e) {
                 doSearch();
+                updateClearButtonVisibility.run();
             }
             @Override public void changedUpdate(javax.swing.event.DocumentEvent e) {}
             private void doSearch() {
@@ -212,6 +243,7 @@ public class AppFrame extends JFrame {
         });
 
         searchWrapper.add(searchField, BorderLayout.CENTER);
+        searchWrapper.add(clearBtn, BorderLayout.EAST);
         searchPanel.add(searchWrapper);
         topBar.add(searchPanel, BorderLayout.CENTER);
 
