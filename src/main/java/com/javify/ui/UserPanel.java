@@ -45,12 +45,16 @@ public class UserPanel extends JPanel {
         topBar.setPreferredSize(new Dimension(getWidth(), 56));
         topBar.setBorder(new EmptyBorder(8, 16, 8, 16));
 
-        JButton backBtn = new JButton("← Back");
+        JButton backBtn = new RoundedButton("← Back");
         backBtn.setForeground(Color.WHITE);
         backBtn.setBackground(new Color(28, 28, 28));
         backBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
         backBtn.setFocusPainted(false);
         backBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        if (backBtn instanceof RoundedButton rounded) {
+            rounded.setCornerRadius(14);
+            rounded.setHoverBackground(new Color(48, 48, 48));
+        }
         installButtonHover(backBtn, new Color(28, 28, 28), new Color(48, 48, 48));
         backBtn.addActionListener(e -> onBack.run());
         topBar.add(backBtn, BorderLayout.WEST);
@@ -93,13 +97,17 @@ public class UserPanel extends JPanel {
         panel.add(Box.createVerticalStrut(16));
 
         // change avatar button
-        JButton changeAvatarBtn = new JButton("Change avatar");
+        JButton changeAvatarBtn = new RoundedButton("Change avatar");
         changeAvatarBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         changeAvatarBtn.setBackground(new Color(185, 99, 6));
         changeAvatarBtn.setForeground(Color.WHITE);
         changeAvatarBtn.setBorder(new EmptyBorder(5, 10, 5, 10));
         changeAvatarBtn.setFocusPainted(false);
         changeAvatarBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        if (changeAvatarBtn instanceof RoundedButton rounded) {
+            rounded.setCornerRadius(14);
+            rounded.setHoverBackground(new Color(205, 114, 16));
+        }
         installButtonHover(changeAvatarBtn, new Color(185, 99, 6), new Color(205, 114, 16));
         changeAvatarBtn.addActionListener(e -> handleChangeAvatar());
         panel.add(changeAvatarBtn);
@@ -135,7 +143,7 @@ public class UserPanel extends JPanel {
         panel.add(Box.createVerticalStrut(24));
 
         // change password button
-        JButton changePasswordBtn = new JButton("Change password");
+        JButton changePasswordBtn = new RoundedButton("Change password");
         changePasswordBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         changePasswordBtn.setBackground(new Color(185, 99, 6));
         changePasswordBtn.setForeground(Color.WHITE);
@@ -143,6 +151,10 @@ public class UserPanel extends JPanel {
         changePasswordBtn.setBorder(new EmptyBorder(10, 32, 10, 32));
         changePasswordBtn.setFocusPainted(false);
         changePasswordBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        if (changePasswordBtn instanceof RoundedButton rounded) {
+            rounded.setCornerRadius(16);
+            rounded.setHoverBackground(new Color(205, 114, 16));
+        }
         installButtonHover(changePasswordBtn, new Color(185, 99, 6), new Color(205, 114, 16));
         changePasswordBtn.addActionListener(e -> handleChangePassword());
         panel.add(changePasswordBtn);

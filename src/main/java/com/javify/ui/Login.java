@@ -61,14 +61,14 @@ public class Login extends JFrame {
 
         loginUsernameField = new JTextField(18);
         loginPasswordField = new JPasswordField(18);
-        loginButton = new JButton("Login");
-        showRegisterButton = new JButton("Register");
+        loginButton = new RoundedButton("Login");
+        showRegisterButton = new RoundedButton("Register");
 
         registerUsernameField = new JTextField(18);
         registerPasswordField = new JPasswordField(18);
         registerConfirmPasswordField = new JPasswordField(18);
-        registerSubmitButton = new JButton("Create Account");
-        backToLoginButton = new JButton("Back");
+        registerSubmitButton = new RoundedButton("Create Account");
+        backToLoginButton = new RoundedButton("Back");
 
         initUi();
         bindActions();
@@ -270,7 +270,13 @@ public class Login extends JFrame {
         button.setBorder(new EmptyBorder(10, 16, 10, 16));
         button.setFont(BUTTON_FONT);
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        installButtonHover(button, ACCENT_COLOR, ACCENT_HOVER_COLOR);
+        if (button instanceof RoundedButton rounded) {
+            rounded.setCornerRadius(16);
+            rounded.setHoverBackground(ACCENT_HOVER_COLOR);
+            rounded.setPressedBackground(new Color(168, 88, 5));
+        } else {
+            installButtonHover(button, ACCENT_COLOR, ACCENT_HOVER_COLOR);
+        }
     }
 
     private void styleSecondaryButton(JButton button) {
@@ -280,7 +286,13 @@ public class Login extends JFrame {
         button.setBorder(new EmptyBorder(10, 16, 10, 16));
         button.setFont(BUTTON_FONT);
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        installButtonHover(button, SECONDARY_COLOR, SECONDARY_HOVER_COLOR);
+        if (button instanceof RoundedButton rounded) {
+            rounded.setCornerRadius(16);
+            rounded.setHoverBackground(SECONDARY_HOVER_COLOR);
+            rounded.setPressedBackground(new Color(32, 32, 32));
+        } else {
+            installButtonHover(button, SECONDARY_COLOR, SECONDARY_HOVER_COLOR);
+        }
     }
 
     private void installButtonHover(JButton button, Color normalColor, Color hoverColor) {

@@ -112,12 +112,16 @@ public class AppFrame extends JFrame {
         title.setFont(new Font("Sans-Serif", Font.BOLD, 14));
         header.add(title);
 
-        JButton newPlaylist = new JButton("+");
+        JButton newPlaylist = new RoundedButton("+");
         newPlaylist.setForeground(Color.WHITE);
         newPlaylist.setBackground(new Color(40, 40, 40));
         newPlaylist.setBorder(new EmptyBorder(4, 10, 4, 10));
         newPlaylist.setFocusPainted(false);
         newPlaylist.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        if (newPlaylist instanceof RoundedButton rounded) {
+            rounded.setCornerRadius(12);
+            rounded.setHoverBackground(new Color(58, 58, 58));
+        }
         newPlaylist.setToolTipText("New playlist");
         header.add(newPlaylist);
 
@@ -216,12 +220,16 @@ public class AppFrame extends JFrame {
     }
 
     private JButton createUserButton() {
-        JButton btn = new JButton();
+        JButton btn = new RoundedButton();
         btn.setLayout(new FlowLayout(FlowLayout.LEFT, 8, 0));
         btn.setBackground(new Color(28, 28, 28));
         btn.setBorder(new EmptyBorder(4, 10, 4, 10));
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        if (btn instanceof RoundedButton rounded) {
+            rounded.setCornerRadius(14);
+            rounded.setHoverBackground(new Color(45, 45, 45));
+        }
         btn.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {
@@ -257,12 +265,20 @@ public class AppFrame extends JFrame {
 
     // dropdown menu
     private void showDropdown(JButton btn) {
-        JPopupMenu menu = new JPopupMenu();
-        menu.setBackground(MENU_BG);
-        menu.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(60, 60, 60)),
-                new EmptyBorder(4, 4, 4, 4)
-        ));
+        JPopupMenu menu = new JPopupMenu() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D graphics = (Graphics2D) g.create();
+                graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                graphics.setColor(MENU_BG);
+                graphics.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                graphics.setColor(new Color(60, 60, 60));
+                graphics.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
+                graphics.dispose();
+            }
+        };
+        menu.setOpaque(false);
+        menu.setBorder(new EmptyBorder(6, 6, 6, 6));
 
         JMenuItem profileItem = new JMenuItem("Profile");
         JMenuItem settingsItem = new JMenuItem("Settings");
@@ -279,9 +295,15 @@ public class AppFrame extends JFrame {
 
         menu.add(profileItem);
         menu.add(settingsItem);
-        menu.add(Box.createVerticalStrut(2));
-        menu.addSeparator();
-        menu.add(Box.createVerticalStrut(2));
+        menu.add(Box.createVerticalStrut(4));
+
+        JPanel divider = new JPanel();
+        divider.setOpaque(true);
+        divider.setBackground(new Color(50, 50, 50));
+        divider.setPreferredSize(new Dimension(1, 1));
+        menu.add(divider);
+
+        menu.add(Box.createVerticalStrut(4));
         menu.add(logoutItem);
 
         // set popup size to match button size
@@ -310,8 +332,10 @@ public class AppFrame extends JFrame {
         item.setBackground(MENU_BG);
         item.setForeground(Color.WHITE);
         item.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
-        item.setBorder(new EmptyBorder(8, 14, 8, 14));
+        item.setBorder(new EmptyBorder(9, 14, 9, 14));
         item.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        item.setFocusPainted(false);
+        item.setContentAreaFilled(false);
         item.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {

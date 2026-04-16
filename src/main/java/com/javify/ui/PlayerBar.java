@@ -259,7 +259,7 @@ public class PlayerBar extends JPanel {
 
     // helper methods
     private JButton controlBtn(String text) {
-        JButton btn = new JButton(text);
+        JButton btn = new RoundedButton(text);
         Dimension fixedControlSize = new Dimension(40, 32);
         btn.setFont(new Font("Sans-Serif", Font.PLAIN, 16));
         btn.setForeground(new Color(180, 180, 180));
@@ -272,6 +272,11 @@ public class PlayerBar extends JPanel {
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        if (btn instanceof RoundedButton rounded) {
+            rounded.setCornerRadius(12);
+            rounded.setHoverBackground(new Color(28, 28, 28));
+            rounded.setPressedBackground(new Color(36, 36, 36));
+        }
         btn.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override public void mouseEntered(java.awt.event.MouseEvent e) {
                 btn.setForeground(Color.WHITE);

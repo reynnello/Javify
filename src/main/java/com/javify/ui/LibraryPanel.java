@@ -88,7 +88,7 @@ public class LibraryPanel extends JPanel {
 
         inner.add(Box.createVerticalStrut(24));
 
-        JButton chooseBtn = new JButton("Add music");
+        JButton chooseBtn = new RoundedButton("Add music");
         chooseBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         chooseBtn.setBackground(new Color(185, 99, 6));
         chooseBtn.setForeground(Color.WHITE);
@@ -96,6 +96,10 @@ public class LibraryPanel extends JPanel {
         chooseBtn.setBorder(new EmptyBorder(12, 32, 12, 32));
         chooseBtn.setFocusPainted(false);
         chooseBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        if (chooseBtn instanceof RoundedButton rounded) {
+            rounded.setCornerRadius(18);
+            rounded.setHoverBackground(new Color(205, 114, 16));
+        }
         chooseBtn.addActionListener(e -> openMusicChooser());
         inner.add(chooseBtn);
 
@@ -119,12 +123,16 @@ public class LibraryPanel extends JPanel {
         header.add(countLabel, BorderLayout.WEST);
 
         // button to change music folder
-        JButton changeFolderBtn = new JButton("Add music");
+        JButton changeFolderBtn = new RoundedButton("Add music");
         changeFolderBtn.setBackground(new Color(185, 99, 6));
         changeFolderBtn.setForeground(new Color(255, 255, 255));
         changeFolderBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
         changeFolderBtn.setFocusPainted(false);
         changeFolderBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        if (changeFolderBtn instanceof RoundedButton rounded) {
+            rounded.setCornerRadius(14);
+            rounded.setHoverBackground(new Color(205, 114, 16));
+        }
         changeFolderBtn.addActionListener(e -> openMusicChooser());
         header.add(changeFolderBtn, BorderLayout.EAST);
 
