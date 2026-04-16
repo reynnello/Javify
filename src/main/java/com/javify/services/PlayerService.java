@@ -23,16 +23,24 @@ public class PlayerService {
     private List<Track> originalQueue = new ArrayList<>();
     private int currentIndex = 0;
     private boolean shuffle = false;
+    private volatile float volume = 0.7f;
 
     // audio player
     private Clip clip;
-    private ExecutorService executor = Executors.newSingleThreadExecutor();
+    private FloatControl gainControl;
+    private final Object clipLock = new Object();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     // callbacks
-    private Consumer<Track> onTrackChanged;
-    private Consumer<State> onStateChanged;
-    private BiConsumer<Long, Long> onProgress;
-    private Runnable onQueueEnd;
+    private final List<Consumer<Track>> onTrackChangedListeners = new ArrayList<>();
+    private final List<Consumer<State>> onStateChangedListeners = new ArrayList<>();
+    private final List<BiConsumer<Long, Long>> onProgressListeners = new ArrayList<>();
+    private final List<Runnable> onQueueEndListeners = new ArrayList<>();
+
+    public PlayerService() {
+        // Warm up Java Sound once to reduce first-play latency on cold start.
+        executor.submit(this::warmUpAudioSystem);
+    }
 
     // --API--
 
@@ -46,16 +54,20 @@ public class PlayerService {
 
     // playback controls
     public void play() {
-        if (state == State.PAUSED && clip != null) {
-            clip.start();
-            setState(State.PLAYING);
+        synchronized (clipLock) {
+            if (state == State.PAUSED && clip != null) {
+                clip.start();
+                setState(State.PLAYING);
+            }
         }
     }
 
     public void pause() {
-        if (state == State.PLAYING && clip != null) {
-            clip.stop();
-            setState(State.PAUSED);
+        synchronized (clipLock) {
+            if (state == State.PLAYING && clip != null) {
+                clip.stop();
+                setState(State.PAUSED);
+            }
         }
     }
 
@@ -90,18 +102,17 @@ public class PlayerService {
 
     // seek to a specific position in the track
     public void seekTo(long microseconds) {
-        if (clip != null) {
-            clip.setMicrosecondPosition(microseconds);
+        synchronized (clipLock) {
+            if (clip != null) {
+                clip.setMicrosecondPosition(microseconds);
+            }
         }
     }
 
     public void setVolume(float volume) {
-        // volume 0.0 - 1.0
-        if (clip != null && clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
-            FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-            float dB = (float) (Math.log10(Math.max(volume, 0.0001f)) * 20); // dB = 20 * log10(volume)
-            dB = Math.max(gainControl.getMinimum(), Math.min(dB, gainControl.getMaximum())); // clamp to min/max
-            gainControl.setValue(dB);
+        this.volume = Math.max(0f, Math.min(1f, volume));
+        synchronized (clipLock) {
+            applyVolumeToClip();
         }
     }
 
@@ -134,10 +145,13 @@ public class PlayerService {
 
     // stop playback
     public void stop() {
-        if (clip != null) {
-            clip.stop();
-            clip.close();
-            clip = null;
+        synchronized (clipLock) {
+            if (clip != null) {
+                clip.stop();
+                clip.close();
+                clip = null;
+                gainControl = null;
+            }
         }
         setState(State.STOPPED);
     }
@@ -154,25 +168,40 @@ public class PlayerService {
         return shuffle;
     }
     public long getPosition() {
-        return clip != null ? clip.getMicrosecondPosition() : 0;
+        synchronized (clipLock) {
+            return clip != null ? clip.getMicrosecondPosition() : 0;
+        }
     }
     public long getDuration() {
-        return clip != null ? clip.getMicrosecondLength() : 0;
+        synchronized (clipLock) {
+            return clip != null ? clip.getMicrosecondLength() : 0;
+        }
+    }
+    public float getVolume() {
+        return volume;
     }
 
     // callbacks
 
     public void setOnTrackChanged(Consumer<Track> trackCallback) {
-        this.onTrackChanged = trackCallback;
+        if (trackCallback != null) {
+            onTrackChangedListeners.add(trackCallback);
+        }
     }
     public void setOnStateChanged(Consumer<State> stateCallback) {
-        this.onStateChanged = stateCallback;
+        if (stateCallback != null) {
+            onStateChangedListeners.add(stateCallback);
+        }
     }
     public void setOnProgress(BiConsumer<Long, Long> progressCallback) {
-        this.onProgress = progressCallback;
+        if (progressCallback != null) {
+            onProgressListeners.add(progressCallback);
+        }
     }
     public void setOnQueueEnd(Runnable queueEndCallback) {
-        this.onQueueEnd = queueEndCallback;
+        if (queueEndCallback != null) {
+            onQueueEndListeners.add(queueEndCallback);
+        }
     }
 
     // internal methods
@@ -181,53 +210,72 @@ public class PlayerService {
         if (queue.isEmpty()) {
             return;
         }
-        currentTrack = queue.get(currentIndex);
+        final Track trackToPlay = queue.get(currentIndex);
+        currentTrack = trackToPlay;
 
         // execute on a separate thread to avoid blocking the UI
         executor.submit(() -> {
             try {
-                if (clip != null) {
-                    clip.stop();
-                    clip.close();
+                Clip newClip;
+                try (AudioInputStream rawStream = AudioSystem.getAudioInputStream(new File(trackToPlay.getFilePath()))) {
+                    AudioFormat baseFormat = rawStream.getFormat();
+
+                    AudioInputStream playbackStream;
+                    if (isDirectlyPlayable(baseFormat)) {
+                        playbackStream = rawStream;
+                    } else {
+                        AudioFormat decodedFormat = new AudioFormat(
+                                AudioFormat.Encoding.PCM_SIGNED,
+                                baseFormat.getSampleRate(),
+                                16,
+                                baseFormat.getChannels(),
+                                baseFormat.getChannels() * 2,
+                                baseFormat.getSampleRate(),
+                                false
+                        );
+                        playbackStream = AudioSystem.getAudioInputStream(decodedFormat, rawStream);
+                    }
+
+                    try (AudioInputStream in = playbackStream) {
+                        newClip = AudioSystem.getClip();
+                        newClip.open(in);
+                    }
                 }
 
-                File file = new File(currentTrack.getFilePath());
-                AudioInputStream rawStream = AudioSystem.getAudioInputStream(file);
-                AudioFormat baseFormat = rawStream.getFormat();
-
-                // convert to 16-bit PCM if necessary
-                AudioFormat decodedFormat = new AudioFormat(
-                        AudioFormat.Encoding.PCM_SIGNED,
-                        baseFormat.getSampleRate(),
-                        16,
-                        baseFormat.getChannels(),
-                        baseFormat.getChannels() * 2,
-                        baseFormat.getSampleRate(),
-                        false
-                );
-                AudioInputStream decodedStream = AudioSystem.getAudioInputStream(decodedFormat, rawStream);
-
-                clip = AudioSystem.getClip();
-                clip.open(decodedStream);
-
-                clip.addLineListener(event -> {
+                newClip.addLineListener(event -> {
                     if (event.getType() == LineEvent.Type.STOP && state == State.PLAYING) {
                         // if the track ends, play the next one
-                        if (clip.getMicrosecondPosition() >= clip.getMicrosecondLength() - 100_000) {
+                        if (newClip.getMicrosecondPosition() >= newClip.getMicrosecondLength() - 100_000) {
                             if (currentIndex < queue.size() - 1) {
                                 currentIndex++;
                                 playCurrentTrack();
                             } else {
                                 setState(State.STOPPED);
-                                if (onQueueEnd != null) onQueueEnd.run();
+                                for (Runnable listener : new ArrayList<>(onQueueEndListeners)) {
+                                    listener.run();
+                                }
                             }
                         }
                     }
                 });
 
-                clip.start();
+                synchronized (clipLock) {
+                    if (clip != null) {
+                        clip.stop();
+                        clip.close();
+                    }
+                    clip = newClip;
+                    gainControl = clip.isControlSupported(FloatControl.Type.MASTER_GAIN)
+                            ? (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN)
+                            : null;
+                    applyVolumeToClip();
+                    clip.start();
+                }
+
                 setState(State.PLAYING);
-                if (onTrackChanged != null) onTrackChanged.accept(currentTrack);
+                for (Consumer<Track> listener : new ArrayList<>(onTrackChangedListeners)) {
+                    listener.accept(trackToPlay);
+                }
                 startProgressTimer();
 
             } catch (Exception e) {
@@ -239,9 +287,22 @@ public class PlayerService {
     // time stamping for progress updates
     private void startProgressTimer() {
         Thread progressThread = new Thread(() -> {
-            while (clip != null && state == State.PLAYING) {
-                if (onProgress != null && clip.isRunning()) {
-                    onProgress.accept(clip.getMicrosecondPosition(), clip.getMicrosecondLength());
+            while (state == State.PLAYING) {
+                long position;
+                long duration;
+                boolean running;
+                synchronized (clipLock) {
+                    if (clip == null) {
+                        break;
+                    }
+                    running = clip.isRunning();
+                    position = clip.getMicrosecondPosition();
+                    duration = clip.getMicrosecondLength();
+                }
+                if (running) {
+                    for (BiConsumer<Long, Long> listener : new ArrayList<>(onProgressListeners)) {
+                        listener.accept(position, duration);
+                    }
                 }
                 try {
                     Thread.sleep(500);
@@ -254,9 +315,42 @@ public class PlayerService {
         progressThread.start();
     }
 
+    private void applyVolumeToClip() {
+        if (clip != null && gainControl != null) {
+            float dB = (float) (Math.log10(Math.max(volume, 0.0001f)) * 20);
+            dB = Math.max(gainControl.getMinimum(), Math.min(dB, gainControl.getMaximum()));
+            gainControl.setValue(dB);
+        }
+    }
+
+    private boolean isDirectlyPlayable(AudioFormat format) {
+        return format.getEncoding() == AudioFormat.Encoding.PCM_SIGNED
+                && format.getSampleSizeInBits() == 16
+                && !format.isBigEndian();
+    }
+
+    private void warmUpAudioSystem() {
+        try {
+            AudioFormat format = new AudioFormat(44_100, 16, 2, true, false);
+            byte[] silence = new byte[format.getFrameSize() * 512];
+            try (AudioInputStream silentStream = new AudioInputStream(
+                    new java.io.ByteArrayInputStream(silence),
+                    format,
+                    silence.length / format.getFrameSize())) {
+                Clip warmupClip = AudioSystem.getClip();
+                warmupClip.open(silentStream);
+                warmupClip.close();
+            }
+        } catch (Exception ignored) {
+            // ignore any errors during warmup
+        }
+    }
+
     // state management
     private void setState(State newState) {
         this.state = newState;
-        if (onStateChanged != null) onStateChanged.accept(newState);
+        for (Consumer<State> listener : new ArrayList<>(onStateChangedListeners)) {
+            listener.accept(newState);
+        }
     }
 }

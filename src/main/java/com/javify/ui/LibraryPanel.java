@@ -11,8 +11,11 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import javax.swing.table.TableRowSorter;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class LibraryPanel extends JPanel {
 
@@ -77,7 +80,7 @@ public class LibraryPanel extends JPanel {
 
         inner.add(Box.createVerticalStrut(8));
 
-        JLabel subtitle = new JLabel("Choose a folder with your music files");
+        JLabel subtitle = new JLabel("Choose music files or a folder");
         subtitle.setForeground(new Color(160, 160, 160));
         subtitle.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -85,7 +88,7 @@ public class LibraryPanel extends JPanel {
 
         inner.add(Box.createVerticalStrut(24));
 
-        JButton chooseBtn = new JButton("Choose folder");
+        JButton chooseBtn = new JButton("Add music");
         chooseBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         chooseBtn.setBackground(new Color(185, 99, 6));
         chooseBtn.setForeground(Color.WHITE);
@@ -93,7 +96,7 @@ public class LibraryPanel extends JPanel {
         chooseBtn.setBorder(new EmptyBorder(12, 32, 12, 32));
         chooseBtn.setFocusPainted(false);
         chooseBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        chooseBtn.addActionListener(e -> openFolderChooser());
+        chooseBtn.addActionListener(e -> openMusicChooser());
         inner.add(chooseBtn);
 
         panel.add(inner);
@@ -116,13 +119,13 @@ public class LibraryPanel extends JPanel {
         header.add(countLabel, BorderLayout.WEST);
 
         // button to change music folder
-        JButton changeFolderBtn = new JButton("Change folder");
-        changeFolderBtn.setBackground(new Color(40, 40, 40));
-        changeFolderBtn.setForeground(new Color(200, 200, 200));
+        JButton changeFolderBtn = new JButton("Add music");
+        changeFolderBtn.setBackground(new Color(185, 99, 6));
+        changeFolderBtn.setForeground(new Color(255, 255, 255));
         changeFolderBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
         changeFolderBtn.setFocusPainted(false);
         changeFolderBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        changeFolderBtn.addActionListener(e -> openFolderChooser());
+        changeFolderBtn.addActionListener(e -> openMusicChooser());
         header.add(changeFolderBtn, BorderLayout.EAST);
 
         panel.add(header, BorderLayout.NORTH);
@@ -221,8 +224,8 @@ public class LibraryPanel extends JPanel {
         return panel;
     }
 
-    // system folder chooser
-    private void openFolderChooser() {
+    // system chooser for music files and folders
+    private void openMusicChooser() {
 
         // os specific L&F for test
         try {
@@ -230,8 +233,14 @@ public class LibraryPanel extends JPanel {
         } catch (Exception ignored) {}
 
         JFileChooser chooser = new JFileChooser();
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        chooser.setDialogTitle("Select music folder");
+        chooser.setDialogTitle("Add music files or folder");
+        chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+        chooser.setMultiSelectionEnabled(true);
+        chooser.setAcceptAllFileFilterUsed(false);
+        chooser.setFileFilter(new FileNameExtensionFilter(
+                "Audio files and folders (*.mp3, *.wav, *.flac)", "mp3", "wav", "flac"
+        ));
+        chooser.setApproveButtonText("Add");
 
         int result = chooser.showOpenDialog(this);
 
@@ -241,12 +250,19 @@ public class LibraryPanel extends JPanel {
         } catch (Exception ignored) {}
 
         if (result == JFileChooser.APPROVE_OPTION) {
-            File folder = chooser.getSelectedFile();
-            List<Track> tracks = libraryService.scanFolder(folder);
+            List<File> selected = new ArrayList<>();
+            File[] selectedFiles = chooser.getSelectedFiles();
+            if (selectedFiles != null && selectedFiles.length > 0) {
+                selected.addAll(Arrays.asList(selectedFiles));
+            } else if (chooser.getSelectedFile() != null) {
+                selected.add(chooser.getSelectedFile());
+            }
+
+            List<Track> tracks = libraryService.scanSelection(selected);
             if (tracks.isEmpty()) {
                 JOptionPane.showMessageDialog(this,
-                        "No MP3, WAV or FLAC files found in this folder.",
-                        "Empty folder", JOptionPane.WARNING_MESSAGE);
+                        "No MP3, WAV or FLAC files found in selected items.",
+                        "Nothing added", JOptionPane.WARNING_MESSAGE);
             } else {
                 loadTracks(libraryService.getAllTracks());
             }
@@ -520,5 +536,13 @@ public class LibraryPanel extends JPanel {
     // format duration in mm:ss format
     private String formatDuration(int seconds) {
         return String.format("%d:%02d", seconds / 60, seconds % 60);
+    }
+
+    // search tracks in the library
+    public void search(String query) {
+        List<Track> results = query.isEmpty()
+                ? libraryService.getAllTracks()
+                : libraryService.search(query);
+        loadTracks(results);
     }
 }

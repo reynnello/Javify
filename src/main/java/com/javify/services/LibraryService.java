@@ -57,6 +57,37 @@ public class LibraryService {
         return scanned;
     }
 
+    // scan selected files/folders and add discovered tracks to the database
+    public List<Track> scanSelection(List<File> selections) {
+        List<Track> scanned = new ArrayList<>();
+        if (selections == null || selections.isEmpty()) {
+            return scanned;
+        }
+
+        for (File file : selections) {
+            if (file == null || !file.exists()) {
+                continue;
+            }
+
+            if (file.isDirectory()) {
+                scanned.addAll(scanFolder(file));
+                continue;
+            }
+
+            if (!isSupportedAudioFile(file.getName())) {
+                continue;
+            }
+
+            Track track = parseTrack(file);
+            if (track != null) {
+                trackDAO.addTrack(track);
+                scanned.add(track);
+            }
+        }
+
+        return scanned;
+    }
+
     // checks metadata of a file and returns a track object
     private Track parseTrack(File file) {
         try {
@@ -105,5 +136,10 @@ public class LibraryService {
     // search for tracks by title, artist, or album
     public List<Track> search(String query) {
         return trackDAO.searchTracks(query);
+    }
+
+    private boolean isSupportedAudioFile(String fileName) {
+        String lower = fileName.toLowerCase();
+        return lower.endsWith(".mp3") || lower.endsWith(".wav") || lower.endsWith(".flac");
     }
 }

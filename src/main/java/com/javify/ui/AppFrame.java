@@ -20,6 +20,8 @@ public class AppFrame extends JFrame {
 
     private static final String MAIN_CARD = "main";
     private static final String PROFILE_CARD = "profile";
+    private static final Color MENU_BG = new Color(24, 24, 24);
+    private static final Color MENU_HOVER = new Color(48, 48, 48);
 
     private CardLayout cardLayout;
     private JPanel cardsPanel;
@@ -74,12 +76,9 @@ public class AppFrame extends JFrame {
         setVisible(true);
     }
 
-    // todo: player
+    // player bar
     private JPanel createPlayerBar() {
-        JPanel bar = new JPanel();
-        bar.setBackground(new Color(10, 10, 10));
-        bar.setPreferredSize(new Dimension(getWidth(), 80));
-        return bar;
+        return new PlayerBar(playerService);
     }
 
     // center panel
@@ -135,23 +134,84 @@ public class AppFrame extends JFrame {
         return sidebar;
     }
 
+    // top bar
     private JPanel createTopBar() {
         JPanel topBar = new JPanel(new BorderLayout());
         topBar.setBackground(new Color(185, 99, 6));
-        topBar.setPreferredSize(new Dimension(getWidth(), 56));
-        topBar.setBorder(new EmptyBorder(8, 16, 8, 16));
+        topBar.setPreferredSize(new Dimension(getWidth(), 64));
+        topBar.setBorder(new EmptyBorder(10, 16, 10, 16));
 
-        // left sided logo
         JLabel appName = new JLabel("Javify");
-        appName.setBackground(new Color(185, 99, 6));
         appName.setFont(new Font("Sans-Serif", Font.BOLD, 18));
         appName.setForeground(Color.WHITE);
         topBar.add(appName, BorderLayout.WEST);
 
-        // user button
-        JButton userButton = createUserButton();
-        topBar.add(userButton, BorderLayout.EAST);
+        // search field
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        searchPanel.setBackground(new Color(185, 99, 6));
 
+        JPanel searchWrapper = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D graphics = (Graphics2D) g.create();
+                graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                graphics.setColor(new Color(20, 20, 20));
+                graphics.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                graphics.setColor(new Color(255, 255, 255, 70));
+                graphics.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
+                graphics.dispose();
+            }
+        };
+        searchWrapper.setOpaque(false);
+        searchWrapper.setPreferredSize(new Dimension(460, 40));
+        searchWrapper.setMinimumSize(new Dimension(320, 40));
+
+        JTextField searchField = new JTextField(34);
+        searchField.setOpaque(false);
+        searchField.setBackground(new Color(0, 0, 0, 0));
+        searchField.setForeground(Color.WHITE);
+        searchField.setCaretColor(Color.WHITE);
+        searchField.setBorder(new EmptyBorder(10, 14, 10, 14));
+        searchField.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
+        // placeholder
+        searchField.setText("Search...");
+        searchField.setForeground(new Color(200, 200, 200));
+        searchField.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) {
+                if (searchField.getText().equals("Search...")) {
+                    searchField.setText("");
+                    searchField.setForeground(Color.WHITE);
+                }
+            }
+            @Override public void focusLost(java.awt.event.FocusEvent e) {
+                if (searchField.getText().isEmpty()) {
+                    searchField.setText("Search...");
+                    searchField.setForeground(new Color(200, 200, 200));
+                }
+            }
+        });
+        // live search
+        searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                doSearch();
+            }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                doSearch();
+            }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) {}
+            private void doSearch() {
+                String q = searchField.getText().trim();
+                if (!q.equals("Search...") && libraryPanel != null) {
+                    libraryPanel.search(q);
+                }
+            }
+        });
+
+        searchWrapper.add(searchField, BorderLayout.CENTER);
+        searchPanel.add(searchWrapper);
+        topBar.add(searchPanel, BorderLayout.CENTER);
+
+        topBar.add(createUserButton(), BorderLayout.EAST);
         return topBar;
     }
 
@@ -162,6 +222,17 @@ public class AppFrame extends JFrame {
         btn.setBorder(new EmptyBorder(4, 10, 4, 10));
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                btn.setBackground(new Color(45, 45, 45));
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                btn.setBackground(new Color(28, 28, 28));
+            }
+        });
 
         // user avatar
         ImageIcon avatar = loadAvatar();
@@ -187,8 +258,11 @@ public class AppFrame extends JFrame {
     // dropdown menu
     private void showDropdown(JButton btn) {
         JPopupMenu menu = new JPopupMenu();
-        menu.setBackground(new Color(28, 28, 28));
-        menu.setBorder(BorderFactory.createLineBorder(new Color(28, 28, 28)));
+        menu.setBackground(MENU_BG);
+        menu.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(60, 60, 60)),
+                new EmptyBorder(4, 4, 4, 4)
+        ));
 
         JMenuItem profileItem = new JMenuItem("Profile");
         JMenuItem settingsItem = new JMenuItem("Settings");
@@ -205,7 +279,9 @@ public class AppFrame extends JFrame {
 
         menu.add(profileItem);
         menu.add(settingsItem);
+        menu.add(Box.createVerticalStrut(2));
         menu.addSeparator();
+        menu.add(Box.createVerticalStrut(2));
         menu.add(logoutItem);
 
         // set popup size to match button size
@@ -231,10 +307,22 @@ public class AppFrame extends JFrame {
     // style menu items
     private void styleMenuItem(JMenuItem item) {
         item.setOpaque(true);
-        item.setBackground(new Color(28, 28, 28));
+        item.setBackground(MENU_BG);
         item.setForeground(Color.WHITE);
         item.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
-        item.setBorder(new EmptyBorder(6, 16, 6, 16));
+        item.setBorder(new EmptyBorder(8, 14, 8, 14));
+        item.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        item.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                item.setBackground(MENU_HOVER);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                item.setBackground(MENU_BG);
+            }
+        });
     }
 
     // load avatar from file todo: fix, not working

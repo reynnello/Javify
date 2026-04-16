@@ -6,6 +6,7 @@ import com.javify.objects.User;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
@@ -50,6 +51,7 @@ public class UserPanel extends JPanel {
         backBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
         backBtn.setFocusPainted(false);
         backBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        installButtonHover(backBtn, new Color(28, 28, 28), new Color(48, 48, 48));
         backBtn.addActionListener(e -> onBack.run());
         topBar.add(backBtn, BorderLayout.WEST);
         add(topBar, BorderLayout.NORTH);
@@ -98,6 +100,7 @@ public class UserPanel extends JPanel {
         changeAvatarBtn.setBorder(new EmptyBorder(5, 10, 5, 10));
         changeAvatarBtn.setFocusPainted(false);
         changeAvatarBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        installButtonHover(changeAvatarBtn, new Color(185, 99, 6), new Color(205, 114, 16));
         changeAvatarBtn.addActionListener(e -> handleChangeAvatar());
         panel.add(changeAvatarBtn);
 
@@ -140,6 +143,7 @@ public class UserPanel extends JPanel {
         changePasswordBtn.setBorder(new EmptyBorder(10, 32, 10, 32));
         changePasswordBtn.setFocusPainted(false);
         changePasswordBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        installButtonHover(changePasswordBtn, new Color(185, 99, 6), new Color(205, 114, 16));
         changePasswordBtn.addActionListener(e -> handleChangePassword());
         panel.add(changePasswordBtn);
 
@@ -291,10 +295,25 @@ public class UserPanel extends JPanel {
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Choose avatar");
         chooser.setAcceptAllFileFilterUsed(false);
-        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+        chooser.setFileFilter(new FileNameExtensionFilter(
                 "Image files (*.png, *.jpg, *.jpeg)", "png", "jpg", "jpeg"
         ));
+        chooser.setApproveButtonText("Choose");
         return chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
+    }
+
+    private void installButtonHover(JButton button, Color normalColor, Color hoverColor) {
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                button.setBackground(hoverColor);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                button.setBackground(normalColor);
+            }
+        });
     }
 
     // create circular avatar from a square image

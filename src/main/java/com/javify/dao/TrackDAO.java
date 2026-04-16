@@ -6,6 +6,7 @@ import com.javify.objects.Track;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class TrackDAO {
 
@@ -57,16 +58,21 @@ public class TrackDAO {
 
     // search by title and/or artist
     public List<Track> searchTracks(String query) {
-        List<Track> tracks = new ArrayList<>();
-        String sql = "SELECT * FROM tracks WHERE title LIKE ? OR artist LIKE ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, "%" + query + "%");
-            pstmt.setString(2, "%" + query + "%");
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) tracks.add(mapTrack(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
-        return tracks;
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (normalizedQuery.isEmpty()) {
+            return getAllTracks();
+        }
+
+        // search by using case-insensitive matching
+        List<Track> result = new ArrayList<>();
+        for (Track track : getAllTracks()) {
+            String title = track.getTitle() != null ? track.getTitle().toLowerCase(Locale.ROOT) : "";
+            String artist = track.getArtist() != null ? track.getArtist().toLowerCase(Locale.ROOT) : "";
+            if (title.contains(normalizedQuery) || artist.contains(normalizedQuery)) {
+                result.add(track);
+            }
+        }
+        return result;
     }
 
     // mapping resultset into an object
