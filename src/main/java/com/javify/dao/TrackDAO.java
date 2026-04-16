@@ -3,6 +3,7 @@ package com.javify.dao;
 import com.javify.db.DatabaseManager;
 import com.javify.objects.Track;
 
+import java.io.File;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,12 +30,23 @@ public class TrackDAO {
     // list of all tracks
     public List<Track> getAllTracks() {
         List<Track> tracks = new ArrayList<>();
+        List<Integer> staleTrackIds = new ArrayList<>();
         String sql = "SELECT * FROM tracks";
         try (Connection conn = DatabaseManager.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                tracks.add(mapTrack(rs));
+                Track track = mapTrack(rs);
+                if (track.getFilePath() != null && new File(track.getFilePath()).exists()) {
+                    tracks.add(track);
+                } else {
+                    staleTrackIds.add(track.getId());
+                }
+            }
+
+            // remove stale rows so deleted files do not come back on next app launch.
+            for (Integer staleTrackId : staleTrackIds) {
+                deleteTrackWithDependencies(conn, staleTrackId);
             }
         } catch (SQLException e) { e.printStackTrace(); }
         return tracks;
@@ -48,7 +60,11 @@ public class TrackDAO {
             pstmt.setInt(1, id);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                return mapTrack(rs);
+                Track track = mapTrack(rs);
+                if (track.getFilePath() != null && new File(track.getFilePath()).exists()) {
+                    return track;
+                }
+                deleteTrackWithDependencies(conn, track.getId());
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -87,5 +103,21 @@ public class TrackDAO {
                 rs.getString("file_path"),
                 rs.getBytes("cover_data")
         );
+    }
+
+    // delete track and its dependencies
+    private void deleteTrackWithDependencies(Connection conn, int trackId) throws SQLException {
+        try (PreparedStatement deletePlaylistLinks = conn.prepareStatement("DELETE FROM playlist_tracks WHERE track_id = ?");
+             PreparedStatement deleteHistory = conn.prepareStatement("DELETE FROM listening_history WHERE track_id = ?");
+             PreparedStatement deleteTrack = conn.prepareStatement("DELETE FROM tracks WHERE id = ?")) {
+            deletePlaylistLinks.setInt(1, trackId);
+            deletePlaylistLinks.executeUpdate();
+
+            deleteHistory.setInt(1, trackId);
+            deleteHistory.executeUpdate();
+
+            deleteTrack.setInt(1, trackId);
+            deleteTrack.executeUpdate();
+        }
     }
 }

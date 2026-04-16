@@ -49,7 +49,14 @@ public class PlayerService {
         originalQueue = new ArrayList<>(tracks);
         queue = new ArrayList<>(tracks);
         currentIndex = startIndex;
-        playCurrentTrack();
+        playCurrentTrack(false, 0L);
+    }
+
+    public void setQueuePausedAt(List<Track> tracks, int startIndex, long positionMicroseconds) {
+        originalQueue = new ArrayList<>(tracks);
+        queue = new ArrayList<>(tracks);
+        currentIndex = startIndex;
+        playCurrentTrack(true, Math.max(0L, positionMicroseconds));
     }
 
     // playback controls
@@ -58,6 +65,7 @@ public class PlayerService {
             if (state == State.PAUSED && clip != null) {
                 clip.start();
                 setState(State.PLAYING);
+                startProgressTimer(); // fix for timing issues when starting from a paused position
             }
         }
     }
@@ -84,7 +92,7 @@ public class PlayerService {
             return;
         }
         currentIndex = (currentIndex + 1) % queue.size();
-        playCurrentTrack();
+        playCurrentTrack(false, 0L);
     }
 
     public void previous() {
@@ -96,7 +104,7 @@ public class PlayerService {
             seekTo(0);
         } else {
             currentIndex = (currentIndex - 1 + queue.size()) % queue.size();
-            playCurrentTrack();
+            playCurrentTrack(false, 0L);
         }
     }
 
@@ -206,7 +214,7 @@ public class PlayerService {
 
     // internal methods
 
-    private void playCurrentTrack() {
+    private void playCurrentTrack(boolean startPaused, long initialPositionMicroseconds) {
         if (queue.isEmpty()) {
             return;
         }
@@ -248,7 +256,7 @@ public class PlayerService {
                         if (newClip.getMicrosecondPosition() >= newClip.getMicrosecondLength() - 100_000) {
                             if (currentIndex < queue.size() - 1) {
                                 currentIndex++;
-                                playCurrentTrack();
+                                playCurrentTrack(false, 0L);
                             } else {
                                 setState(State.STOPPED);
                                 for (Runnable listener : new ArrayList<>(onQueueEndListeners)) {
@@ -269,14 +277,24 @@ public class PlayerService {
                             ? (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN)
                             : null;
                     applyVolumeToClip();
-                    clip.start();
+                    if (startPaused) {
+                        long clamped = Math.max(0L, Math.min(initialPositionMicroseconds, clip.getMicrosecondLength()));
+                        clip.setMicrosecondPosition(clamped);
+                    } else {
+                        clip.start();
+                    }
                 }
 
-                setState(State.PLAYING);
-                for (Consumer<Track> listener : new ArrayList<>(onTrackChangedListeners)) {
-                    listener.accept(trackToPlay);
+                if (startPaused) {
+                    setState(State.PAUSED);
+                } else {
+                    setState(State.PLAYING);
                 }
-                startProgressTimer();
+                notifyTrackChanged(trackToPlay);
+                emitProgressSnapshot();
+                if (!startPaused) {
+                    startProgressTimer();
+                }
 
             } catch (Exception e) {
                 System.err.println("PlayerService error: " + e.getMessage());
@@ -320,6 +338,27 @@ public class PlayerService {
             float dB = (float) (Math.log10(Math.max(volume, 0.0001f)) * 20);
             dB = Math.max(gainControl.getMinimum(), Math.min(dB, gainControl.getMaximum()));
             gainControl.setValue(dB);
+        }
+    }
+
+    private void notifyTrackChanged(Track track) {
+        for (Consumer<Track> listener : new ArrayList<>(onTrackChangedListeners)) {
+            listener.accept(track);
+        }
+    }
+
+    private void emitProgressSnapshot() {
+        long position;
+        long duration;
+        synchronized (clipLock) {
+            if (clip == null) {
+                return;
+            }
+            position = clip.getMicrosecondPosition();
+            duration = clip.getMicrosecondLength();
+        }
+        for (BiConsumer<Long, Long> listener : new ArrayList<>(onProgressListeners)) {
+            listener.accept(position, duration);
         }
     }
 

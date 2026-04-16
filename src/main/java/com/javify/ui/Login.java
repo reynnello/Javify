@@ -1,5 +1,6 @@
 package com.javify.ui;
 
+import com.javify.dao.AppStateDAO;
 import com.javify.db.DatabaseManager;
 import com.javify.objects.User;
 import com.javify.services.AuthService;
@@ -356,6 +357,7 @@ public class Login extends JFrame {
         }
 
         User user = new User(userId, username);
+        new AppStateDAO().setLastUserId(userId); // autologin
         dispose();
         new AppFrame(user, dbUrl);
     }

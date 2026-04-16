@@ -1,6 +1,9 @@
 package com.javify.ui;
 
+import com.javify.dao.AppStateDAO;
+import com.javify.dao.TrackDAO;
 import com.javify.dao.UserDAO;
+import com.javify.objects.Track;
 import com.javify.objects.User;
 import com.javify.services.PlayerService;
 
@@ -10,7 +13,9 @@ import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import javax.imageio.ImageIO;
 
 public class AppFrame extends JFrame {
@@ -20,6 +25,7 @@ public class AppFrame extends JFrame {
 
     private static final String MAIN_CARD = "main";
     private static final String PROFILE_CARD = "profile";
+    private static final String SETTING_GLOBAL_VOLUME = "global_volume";
     private static final Color MENU_BG = new Color(24, 24, 24);
     private static final Color MENU_HOVER = new Color(48, 48, 48);
 
@@ -28,13 +34,19 @@ public class AppFrame extends JFrame {
     private LibraryPanel libraryPanel;
     private final PlayerService playerService;
     private final UserDAO userDAO;
+    private final AppStateDAO appStateDAO;
+    private final TrackDAO trackDAO;
     private JLabel topAvatarLabel;
+    private Timer playbackStateTimer;
 
     public AppFrame(User currentUser, String dbUrl) {
         this.currentUser = currentUser;
         this.dbUrl = dbUrl;
         this.playerService = new PlayerService();
         this.userDAO = new UserDAO(dbUrl);
+        this.appStateDAO = new AppStateDAO();
+        this.trackDAO = new TrackDAO();
+        applySavedGlobalVolume();
         initWindow();
     }
 
@@ -73,7 +85,71 @@ public class AppFrame extends JFrame {
         cardsPanel.add(userPanel, PROFILE_CARD);
 
         add(cardsPanel);
+        initPlaybackStatePersistence();
+        restorePlaybackState();
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                persistPlaybackState();
+            }
+        });
         setVisible(true);
+    }
+
+    // playback state persistence
+    private void initPlaybackStatePersistence() {
+        playerService.setOnTrackChanged(track -> persistPlaybackState());
+        playerService.setOnStateChanged(state -> persistPlaybackState());
+
+        playbackStateTimer = new Timer(2000, e -> {
+            persistPlaybackState();
+            persistGlobalVolume();
+        });
+        playbackStateTimer.setRepeats(true);
+        playbackStateTimer.start();
+    }
+
+    private void persistPlaybackState() {
+        Track current = playerService.getCurrentTrack();
+        Integer trackId = current != null ? current.getId() : null;
+        long position = playerService.getPosition();
+        PlayerService.State state = playerService.getState();
+        appStateDAO.savePlaybackState(currentUser.getId(), trackId, position, state);
+    }
+
+    // global volume persistence
+    private void applySavedGlobalVolume() {
+        String saved = appStateDAO.getSetting(SETTING_GLOBAL_VOLUME);
+        if (saved == null || saved.isBlank()) {
+            return;
+        }
+        try {
+            float volume = Float.parseFloat(saved);
+            playerService.setVolume(volume);
+        } catch (NumberFormatException ignored) {
+            // Ignore malformed value and keep PlayerService default.
+        }
+    }
+
+    private void persistGlobalVolume() {
+        appStateDAO.setSetting(SETTING_GLOBAL_VOLUME, String.valueOf(playerService.getVolume()));
+    }
+
+    // restore playback state
+    private void restorePlaybackState() {
+        AppStateDAO.PlaybackState saved = appStateDAO.loadPlaybackState(currentUser.getId());
+        if (saved == null || saved.trackId() == null) {
+            return;
+        }
+
+        Track track = trackDAO.getTrackById(saved.trackId());
+        if (track == null || track.getFilePath() == null || !new File(track.getFilePath()).exists()) {
+            return;
+        }
+
+        long targetPosition = saved.positionMicroseconds();
+        playerService.setQueuePausedAt(Collections.singletonList(track), 0, targetPosition);
+        persistPlaybackState();
     }
 
     // player bar
@@ -353,6 +429,12 @@ public class AppFrame extends JFrame {
                 JOptionPane.YES_NO_OPTION
         );
         if (confirm == JOptionPane.YES_OPTION) {
+            persistPlaybackState();
+            persistGlobalVolume();
+            appStateDAO.clearLastUserId();
+            if (playbackStateTimer != null) {
+                playbackStateTimer.stop();
+            }
             dispose();
             new Login(dbUrl);
         }

@@ -1,6 +1,7 @@
 package com.javify.dao;
 
 import com.javify.db.DatabaseManager;
+import com.javify.objects.User;
 import org.mindrot.jbcrypt.BCrypt;
 import java.sql.*;
 
@@ -108,6 +109,22 @@ public class UserDAO {
             return rs.next() ? rs.getBytes("avatar_data") : null;
         } catch (SQLException e) {
             throw new IllegalStateException("Database error while loading avatar.", e);
+        }
+    }
+
+    // get user by id for autologin
+    public User getUserById(int userId) {
+        String sql = "SELECT id, username FROM users WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return new User(rs.getInt("id"), rs.getString("username"));
+            }
+            return null;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Database error while loading user.", e);
         }
     }
 }

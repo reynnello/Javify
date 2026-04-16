@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'application'
+    id 'com.gradleup.shadow' version '8.3.5'
 }
 
 repositories {
@@ -20,3 +21,13 @@ dependencies {
 application {
     mainClass = 'com.javify.Main'
 }
+
+tasks.named('shadowJar') {
+    archiveClassifier.set('all')
+    manifest {
+        attributes 'Main-Class': application.mainClass.get()
+    }
+    // Keep ServiceLoader files from audio libs (mp3spi/tritonus) working inside fat JAR.
+    mergeServiceFiles()
+}
+
