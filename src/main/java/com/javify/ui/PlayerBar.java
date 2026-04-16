@@ -260,9 +260,15 @@ public class PlayerBar extends JPanel {
     // helper methods
     private JButton controlBtn(String text) {
         JButton btn = new JButton(text);
+        Dimension fixedControlSize = new Dimension(40, 32);
         btn.setFont(new Font("Sans-Serif", Font.PLAIN, 16));
         btn.setForeground(new Color(180, 180, 180));
         btn.setBackground(new Color(10, 10, 10));
+        btn.setHorizontalAlignment(SwingConstants.CENTER);
+        btn.setMargin(new Insets(0, 0, 0, 0));
+        btn.setPreferredSize(fixedControlSize);
+        btn.setMinimumSize(fixedControlSize);
+        btn.setMaximumSize(fixedControlSize);
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
