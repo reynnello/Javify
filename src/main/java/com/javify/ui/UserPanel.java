@@ -45,12 +45,18 @@ public class UserPanel extends JPanel {
         topBar.setPreferredSize(new Dimension(getWidth(), 56));
         topBar.setBorder(new EmptyBorder(8, 16, 8, 16));
 
-        JButton backBtn = new RoundedButton("← Back");
+        JButton backBtn = new RoundedButton("Back");
         backBtn.setForeground(Color.WHITE);
         backBtn.setBackground(new Color(28, 28, 28));
         backBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
         backBtn.setFocusPainted(false);
         backBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        Icon backIcon = IconLoader.svg("arrow-left.svg", 14, Color.WHITE);
+        backBtn.setIcon(backIcon);
+        backBtn.setIconTextGap(6);
+        if (backIcon == null) {
+            backBtn.setText("← Back");
+        }
         if (backBtn instanceof RoundedButton rounded) {
             rounded.setCornerRadius(14);
             rounded.setHoverBackground(new Color(48, 48, 48));

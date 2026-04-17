@@ -186,14 +186,19 @@ public class AppFrame extends JFrame {
         JLabel title = new JLabel("Your Library");
         title.setForeground(Color.WHITE);
         title.setFont(new Font("Sans-Serif", Font.BOLD, 14));
+        title.setIcon(IconLoader.svg("playlist.svg", 16, Color.WHITE));
+        title.setIconTextGap(8);
         header.add(title);
 
-        JButton newPlaylist = new RoundedButton("+");
+        JButton newPlaylist = new RoundedButton();
         newPlaylist.setForeground(Color.WHITE);
         newPlaylist.setBackground(new Color(40, 40, 40));
         newPlaylist.setBorder(new EmptyBorder(4, 10, 4, 10));
         newPlaylist.setFocusPainted(false);
         newPlaylist.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        Icon addPlaylistIcon = IconLoader.svg("plus-circle.svg", 16, Color.WHITE);
+        newPlaylist.setIcon(addPlaylistIcon);
+        newPlaylist.setText(addPlaylistIcon == null ? "+" : "");
         if (newPlaylist instanceof RoundedButton rounded) {
             rounded.setCornerRadius(12);
             rounded.setHoverBackground(new Color(58, 58, 58));
@@ -362,7 +367,10 @@ public class AppFrame extends JFrame {
         btn.add(nameLabel);
 
         // dropdown arrow
-        JLabel arrow = new JLabel("↓");
+        JLabel arrow = new JLabel();
+        Icon arrowIcon = IconLoader.svg("arrow-down.svg", 12, Color.WHITE);
+        arrow.setIcon(arrowIcon);
+        arrow.setText(arrowIcon == null ? "↓" : "");
         arrow.setForeground(Color.WHITE);
         btn.add(arrow);
 

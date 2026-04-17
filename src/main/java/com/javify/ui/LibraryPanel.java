@@ -21,6 +21,10 @@ public class LibraryPanel extends JPanel {
 
     private static final int TRACK_ROW_HEIGHT = 56;
     private static final int COVER_SIZE = 46;
+    private static final Color ACCENT = new Color(185, 99, 6);
+
+    private final Icon trackPlayIcon = IconLoader.svg("play.svg", 14, new Color(18, 18, 18));
+    private final Icon trackPauseIcon = IconLoader.svg("pause.svg", 14, new Color(18, 18, 18));
 
     private final User currentUser;
     private final LibraryService libraryService;
@@ -65,7 +69,10 @@ public class LibraryPanel extends JPanel {
         inner.setLayout(new BoxLayout(inner, BoxLayout.Y_AXIS));
         inner.setBackground(new Color(18, 18, 18));
 
-        JLabel icon = new JLabel("🎵");
+        JLabel icon = new JLabel();
+        Icon noteIcon = IconLoader.svg("music-note.svg", 48, Color.WHITE);
+        icon.setIcon(noteIcon);
+        icon.setText(noteIcon == null ? "🎵" : "");
         icon.setFont(new Font("Sans-Serif", Font.PLAIN, 48));
         icon.setAlignmentX(Component.CENTER_ALIGNMENT);
         inner.add(icon);
@@ -90,12 +97,14 @@ public class LibraryPanel extends JPanel {
 
         JButton chooseBtn = new RoundedButton("Add music");
         chooseBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        chooseBtn.setBackground(new Color(185, 99, 6));
+        chooseBtn.setBackground(ACCENT);
         chooseBtn.setForeground(Color.WHITE);
         chooseBtn.setFont(new Font("Sans-Serif", Font.BOLD, 13));
         chooseBtn.setBorder(new EmptyBorder(12, 32, 12, 32));
         chooseBtn.setFocusPainted(false);
         chooseBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        chooseBtn.setIcon(IconLoader.svg("plus-circle.svg", 16, new Color(255, 255, 255)));
+        chooseBtn.setIconTextGap(8);
         if (chooseBtn instanceof RoundedButton rounded) {
             rounded.setCornerRadius(18);
             rounded.setHoverBackground(new Color(205, 114, 16));
@@ -122,13 +131,15 @@ public class LibraryPanel extends JPanel {
         countLabel.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
         header.add(countLabel, BorderLayout.WEST);
 
-        // button to change music folder
+        // button to add music when tracks are already present, opens the same file chooser as in empty state
         JButton changeFolderBtn = new RoundedButton("Add music");
-        changeFolderBtn.setBackground(new Color(185, 99, 6));
+        changeFolderBtn.setBackground(ACCENT);
         changeFolderBtn.setForeground(new Color(255, 255, 255));
         changeFolderBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
         changeFolderBtn.setFocusPainted(false);
         changeFolderBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        changeFolderBtn.setIcon(IconLoader.svg("plus-circle.svg", 20, new Color(255, 255, 255)));
+        changeFolderBtn.setIconTextGap(6);
         if (changeFolderBtn instanceof RoundedButton rounded) {
             rounded.setCornerRadius(14);
             rounded.setHoverBackground(new Color(205, 114, 16));
@@ -353,11 +364,13 @@ public class LibraryPanel extends JPanel {
 
                 if (showControl) {
                     boolean showPause = isCurrent && playerService.getState() == PlayerService.State.PLAYING;
-                    setText(showPause ? "❚❚" : "▶");
+                    setIcon(showPause ? trackPauseIcon : trackPlayIcon);
+                    setText((showPause ? trackPauseIcon : trackPlayIcon) == null ? (showPause ? "❚❚" : "▶") : "");
                     setForeground(new Color(18, 18, 18));
-                    setBackground(new Color(185, 99, 6));
+                    setBackground(ACCENT);
                     setFont(new Font("Sans-Serif", Font.BOLD, 14));
                 } else {
+                    setIcon(null);
                     setText(value != null ? value.toString() : "");
                     setForeground(new Color(160, 160, 160));
                     setBackground(getRowBackground(row));

@@ -25,6 +25,11 @@ public class PlayerBar extends JPanel {
     private JLabel currentTimeLabel;
     private JLabel totalTimeLabel;
     private JSlider volumeSlider;
+    private JLabel volumeIconLabel;
+
+    private static final Color ICON_MUTED = new Color(160, 160, 160);
+    private static final Color ICON_ACTIVE = Color.WHITE;
+    private static final Color ACCENT = new Color(185, 99, 6);
 
     private boolean seeking = false;
 
@@ -105,17 +110,14 @@ public class PlayerBar extends JPanel {
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 8));
         controls.setBackground(new Color(10, 10, 10));
 
-        shuffleBtn = controlBtn("⇄");
-        prevBtn    = controlBtn("⏮");
-        playPauseBtn = controlBtn("▶");
-        playPauseBtn.setFont(new Font("Sans-Serif", Font.BOLD, 18));
-        playPauseBtn.setForeground(Color.WHITE);
-        nextBtn    = controlBtn("⏭");
+        shuffleBtn = controlBtn("shuffle.svg", "⇄", 18, ICON_MUTED);
+        prevBtn = controlBtn("rewind.svg", "⏮", 18, ICON_MUTED);
+        playPauseBtn = controlBtn("play.svg", "▶", 20, ICON_ACTIVE);
+        nextBtn = controlBtn("fast-forward.svg", "⏭", 18, ICON_MUTED);
 
         shuffleBtn.addActionListener(e -> {
             playerService.toggleShuffle();
-            shuffleBtn.setForeground(playerService.isShuffle()
-                    ? new Color(185, 99, 6) : new Color(180, 180, 180));
+            updateShuffleIcon();
         });
         prevBtn.addActionListener(e -> playerService.previous());
         playPauseBtn.addActionListener(e -> playerService.togglePlayPause());
@@ -125,6 +127,8 @@ public class PlayerBar extends JPanel {
         controls.add(prevBtn);
         controls.add(playPauseBtn);
         controls.add(nextBtn);
+
+        updateShuffleIcon();
 
         panel.add(controls, BorderLayout.NORTH);
 
@@ -172,18 +176,21 @@ public class PlayerBar extends JPanel {
         JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
         row.setOpaque(false);
 
-        JLabel volIcon = new JLabel("🔊");
-        volIcon.setForeground(new Color(160, 160, 160));
+        volumeIconLabel = new JLabel();
+        volumeIconLabel.setPreferredSize(new Dimension(18, 18));
 
         volumeSlider = createSlider(0, 100, Math.round(playerService.getVolume() * 100));
         volumeSlider.setPreferredSize(new Dimension(100, 20));
         volumeSlider.addChangeListener(e -> {
             playerService.setVolume(volumeSlider.getValue() / 100f);
+            updateVolumeIcon();
         });
 
-        row.add(volIcon);
+        row.add(volumeIconLabel);
         row.add(volumeSlider);
         panel.add(row);
+
+        updateVolumeIcon();
 
         return panel;
     }
@@ -221,10 +228,11 @@ public class PlayerBar extends JPanel {
 
         playerService.setOnStateChanged(state -> SwingUtilities.invokeLater(() -> {
             if (state == PlayerService.State.PLAYING) {
-                playPauseBtn.setText("⏸");
+                setButtonIcon(playPauseBtn, "pause.svg", "⏸", 20, ICON_ACTIVE);
             } else {
-                playPauseBtn.setText("▶");
+                setButtonIcon(playPauseBtn, "play.svg", "▶", 20, ICON_ACTIVE);
             }
+            updateShuffleIcon();
             playPauseBtn.revalidate();
             playPauseBtn.repaint();
         }));
@@ -258,11 +266,10 @@ public class PlayerBar extends JPanel {
     }
 
     // helper methods
-    private JButton controlBtn(String text) {
-        JButton btn = new RoundedButton(text);
+    private JButton controlBtn(String iconName, String fallbackText, int iconSize, Color iconColor) {
+        JButton btn = new RoundedButton();
         Dimension fixedControlSize = new Dimension(40, 32);
         btn.setFont(new Font("Sans-Serif", Font.PLAIN, 16));
-        btn.setForeground(new Color(180, 180, 180));
         btn.setBackground(new Color(10, 10, 10));
         btn.setHorizontalAlignment(SwingConstants.CENTER);
         btn.setMargin(new Insets(0, 0, 0, 0));
@@ -277,16 +284,36 @@ public class PlayerBar extends JPanel {
             rounded.setHoverBackground(new Color(28, 28, 28));
             rounded.setPressedBackground(new Color(36, 36, 36));
         }
-        btn.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override public void mouseEntered(java.awt.event.MouseEvent e) {
-                btn.setForeground(Color.WHITE);
-            }
-            @Override public void mouseExited(java.awt.event.MouseEvent e) {
-                if (btn != shuffleBtn || !playerService.isShuffle())
-                    btn.setForeground(new Color(180, 180, 180));
-            }
-        });
+        setButtonIcon(btn, iconName, fallbackText, iconSize, iconColor);
         return btn;
+    }
+
+    private void updateShuffleIcon() {
+        Color color = playerService.isShuffle() ? ACCENT : ICON_MUTED;
+        setButtonIcon(shuffleBtn, "shuffle.svg", "⇄", 18, color);
+    }
+
+    private void updateVolumeIcon() {
+        int value = volumeSlider != null ? volumeSlider.getValue() : Math.round(playerService.getVolume() * 100);
+        String iconName;
+        if (value <= 0) {
+            iconName = "speaker-none.svg";
+        } else if (value < 50) {
+            iconName = "speaker-low.svg";
+        } else {
+            iconName = "speaker-high.svg";
+        }
+        Icon icon = IconLoader.svg(iconName, 18, ICON_MUTED);
+        volumeIconLabel.setIcon(icon);
+        volumeIconLabel.setText(icon == null ? "🔊" : "");
+        volumeIconLabel.setForeground(ICON_MUTED);
+    }
+
+    private void setButtonIcon(JButton button, String iconName, String fallbackText, int size, Color color) {
+        Icon icon = IconLoader.svg(iconName, size, color);
+        button.setIcon(icon);
+        button.setText(icon == null ? fallbackText : "");
+        button.setForeground(color);
     }
 
     // slider with custom UI
