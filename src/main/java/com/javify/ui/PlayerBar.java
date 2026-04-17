@@ -356,14 +356,20 @@ public class PlayerBar extends JPanel {
 
     // empty cover icon
     private ImageIcon emptycover() {
-        BufferedImage img = new BufferedImage(56, 56, BufferedImage.TYPE_INT_ARGB);
+        int size = 56;
+        BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = img.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         graphics.setColor(new Color(40, 40, 40));
-        graphics.fillRect(0, 0, 56, 56);
-        graphics.setColor(new Color(100, 100, 100));
-        graphics.setFont(new Font("Sans-Serif", Font.PLAIN, 24));
-        FontMetrics fm = graphics.getFontMetrics();
-        graphics.drawString("♪", (56 - fm.stringWidth("♪")) / 2, 56/2 + fm.getAscent()/2 - 2);
+        graphics.fillRect(0, 0, size, size);
+
+        Icon noteIcon = IconLoader.svg("music-note.svg", 24, new Color(100, 100, 100));
+        if (noteIcon != null) {
+            int x = (size - noteIcon.getIconWidth()) / 2;
+            int y = (size - noteIcon.getIconHeight()) / 2;
+            noteIcon.paintIcon(null, graphics, x, y);
+        }
+
         graphics.dispose();
         return new ImageIcon(img);
     }
@@ -373,3 +379,4 @@ public class PlayerBar extends JPanel {
         return String.format("%d:%02d", seconds / 60, seconds % 60);
     }
 }
+

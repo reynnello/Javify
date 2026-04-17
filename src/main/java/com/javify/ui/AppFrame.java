@@ -3,6 +3,7 @@ package com.javify.ui;
 import com.javify.dao.AppStateDAO;
 import com.javify.dao.TrackDAO;
 import com.javify.dao.UserDAO;
+import com.javify.objects.Playlist;
 import com.javify.objects.Track;
 import com.javify.objects.User;
 import com.javify.services.PlayerService;
@@ -36,6 +37,7 @@ public class AppFrame extends JFrame {
     private final UserDAO userDAO;
     private final AppStateDAO appStateDAO;
     private final TrackDAO trackDAO;
+    private SidebarPanel sidebarPanel;
     private JLabel topAvatarLabel;
     private Timer playbackStateTimer;
 
@@ -162,61 +164,17 @@ public class AppFrame extends JFrame {
         JPanel area = new JPanel(new BorderLayout());
         area.setBackground(new Color(18, 18, 18));
 
-        // todo: playlist columnt
-        JPanel sidebar = createSidebar();
-        area.add(sidebar, BorderLayout.WEST);
+        sidebarPanel = new SidebarPanel(this, currentUser, dbUrl, this::openPlaylist);
+        area.add(sidebarPanel, BorderLayout.WEST);
 
-        // library panel
         libraryPanel = new LibraryPanel(currentUser, playerService);
         area.add(libraryPanel, BorderLayout.CENTER);
 
         return area;
     }
 
-    // todo: sidebar panel
-    // for now it's just a placeholder with create playlist button
-    private JPanel createSidebar() {
-        JPanel sidebar = new JPanel(new BorderLayout());
-        sidebar.setBackground(new Color(12, 12, 12));
-        sidebar.setPreferredSize(new Dimension(220, getHeight()));
-
-        JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 10));
-        header.setBackground(new Color(12, 12, 12));
-
-        JLabel title = new JLabel("Your Library");
-        title.setForeground(Color.WHITE);
-        title.setFont(new Font("Sans-Serif", Font.BOLD, 14));
-        title.setIcon(IconLoader.svg("playlist.svg", 16, Color.WHITE));
-        title.setIconTextGap(8);
-        header.add(title);
-
-        JButton newPlaylist = new RoundedButton();
-        newPlaylist.setForeground(Color.WHITE);
-        newPlaylist.setBackground(new Color(40, 40, 40));
-        newPlaylist.setBorder(new EmptyBorder(4, 10, 4, 10));
-        newPlaylist.setFocusPainted(false);
-        newPlaylist.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        Icon addPlaylistIcon = IconLoader.svg("plus-circle.svg", 16, Color.WHITE);
-        newPlaylist.setIcon(addPlaylistIcon);
-        newPlaylist.setText(addPlaylistIcon == null ? "+" : "");
-        if (newPlaylist instanceof RoundedButton rounded) {
-            rounded.setCornerRadius(12);
-            rounded.setHoverBackground(new Color(58, 58, 58));
-        }
-        newPlaylist.setToolTipText("New playlist");
-        header.add(newPlaylist);
-
-        sidebar.add(header, BorderLayout.NORTH);
-
-        // todo: playlist list
-        JPanel playlistList = new JPanel();
-        playlistList.setBackground(new Color(12, 12, 12));
-        sidebar.add(new JScrollPane(playlistList) {{
-            setBorder(null);
-            getViewport().setBackground(new Color(12, 12, 12));
-        }}, BorderLayout.CENTER);
-
-        return sidebar;
+    private void openPlaylist(Playlist playlist) {
+        System.out.println("Open playlist: " + playlist.getName());
     }
 
     // top bar
@@ -471,7 +429,7 @@ public class AppFrame extends JFrame {
         });
     }
 
-    // load avatar from file todo: fix, not working
+    // load avatar image from the database
     private ImageIcon loadAvatar() {
         try {
             byte[] avatarData = userDAO.getAvatarData(currentUser.getId());

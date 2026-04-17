@@ -11,16 +11,15 @@ import java.util.List;
 public class PlaylistDAO {
 
     // create playlist
-    public void createPlaylist(String name, int userId) {
-        String sql = "INSERT INTO playlists (name, user_id) VALUES (?, ?)";
+    public void createPlaylist(String name, int userId, byte[] coverData) {
+        String sql = "INSERT INTO playlists (name, user_id, cover_data) VALUES (?, ?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, name);
             pstmt.setInt(2, userId);
+            pstmt.setBytes(3, coverData);
             pstmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        } catch (SQLException e) { e.printStackTrace(); }
     }
 
     // list of all playlists
@@ -33,7 +32,7 @@ public class PlaylistDAO {
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
                 int id = rs.getInt("id");
-                playlists.add(new Playlist(id, rs.getString("name"), userId, getTracksForPlaylist(id)));
+                playlists.add(new Playlist(id, rs.getString("name"), userId, getTracksForPlaylist(id), rs.getBytes("cover_data")));
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -97,6 +96,20 @@ public class PlaylistDAO {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, newName);
             pstmt.setInt(2, playlistId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // update playlist name and cover
+    public void updatePlaylist(int playlistId, String newName, byte[] coverData) {
+        String sql = "UPDATE playlists SET name = ?, cover_data = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, newName);
+            pstmt.setBytes(2, coverData);
+            pstmt.setInt(3, playlistId);
             pstmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();

@@ -158,7 +158,6 @@ public class LibraryPanel extends JPanel {
         JTable table = new JTable(tableModel);
         styleTable(table);
 
-        // double-click on table row to play track
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -176,11 +175,6 @@ public class LibraryPanel extends JPanel {
                     return;
                 }
 
-                // keep double-click behavior for starting selected track
-                if (e.getClickCount() == 2 && modelRow >= 0) {
-                    playerService.setQueue(currentTracks, modelRow);
-                    table.repaint();
-                }
             }
 
             @Override
@@ -539,17 +533,20 @@ public class LibraryPanel extends JPanel {
                 }
             } catch (Exception ignored) {}
         }
-        // placeholder icon if cover is not available
+
         java.awt.image.BufferedImage placeholder = new java.awt.image.BufferedImage(COVER_SIZE, COVER_SIZE, java.awt.image.BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = placeholder.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         graphics.setColor(new Color(50, 50, 50));
         graphics.fillRect(0, 0, COVER_SIZE, COVER_SIZE);
-        graphics.setColor(new Color(100, 100, 100));
-        graphics.setFont(new Font("Sans-Serif", Font.PLAIN, 20));
-        FontMetrics metrics = graphics.getFontMetrics();
-        int x = (COVER_SIZE - metrics.stringWidth("♪")) / 2;
-        int y = (COVER_SIZE - metrics.getHeight()) / 2 + metrics.getAscent();
-        graphics.drawString("♪", x, y);
+
+        Icon noteIcon = IconLoader.svg("music-note.svg", 20, new Color(100, 100, 100));
+        if (noteIcon != null) {
+            int x = (COVER_SIZE - noteIcon.getIconWidth()) / 2;
+            int y = (COVER_SIZE - noteIcon.getIconHeight()) / 2;
+            noteIcon.paintIcon(null, graphics, x, y);
+        }
+
         graphics.dispose();
         return new ImageIcon(placeholder);
     }
@@ -567,3 +564,4 @@ public class LibraryPanel extends JPanel {
         loadTracks(results);
     }
 }
+
