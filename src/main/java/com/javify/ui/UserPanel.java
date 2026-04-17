@@ -295,29 +295,7 @@ public class UserPanel extends JPanel {
     }
 
     private File chooseAvatarFile() {
-        Window owner = SwingUtilities.getWindowAncestor(this);
-        if (owner instanceof Frame frameOwner) {
-            FileDialog dialog = new FileDialog(frameOwner, "Choose avatar", FileDialog.LOAD);
-            dialog.setFilenameFilter((dir, name) -> {
-                String lower = name.toLowerCase();
-                return lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg");
-            });
-            dialog.setVisible(true);
-
-            if (dialog.getFile() == null) {
-                return null;
-            }
-            return new File(dialog.getDirectory(), dialog.getFile());
-        }
-
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Choose avatar");
-        chooser.setAcceptAllFileFilterUsed(false);
-        chooser.setFileFilter(new FileNameExtensionFilter(
-                "Image files (*.png, *.jpg, *.jpeg)", "png", "jpg", "jpeg"
-        ));
-        chooser.setApproveButtonText("Choose");
-        return chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
+        return FileChooserUtils.chooseAvatarFile(this);
     }
 
     private void installButtonHover(JButton button, Color normalColor, Color hoverColor) {

@@ -239,46 +239,19 @@ public class LibraryPanel extends JPanel {
 
     // system chooser for music files and folders
     private void openMusicChooser() {
+        File[] selected = FileChooserUtils.chooseAudioFiles(this);
+        
+        if (selected.length == 0) {
+            return;
+        }
 
-        // os specific L&F for test
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {}
-
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Add music files or folder");
-        chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-        chooser.setMultiSelectionEnabled(true);
-        chooser.setAcceptAllFileFilterUsed(false);
-        chooser.setFileFilter(new FileNameExtensionFilter(
-                "Audio files and folders (*.mp3, *.wav, *.flac)", "mp3", "wav", "flac"
-        ));
-        chooser.setApproveButtonText("Add");
-
-        int result = chooser.showOpenDialog(this);
-
-        // return to default L&F
-        try {
-            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
-        } catch (Exception ignored) {}
-
-        if (result == JFileChooser.APPROVE_OPTION) {
-            List<File> selected = new ArrayList<>();
-            File[] selectedFiles = chooser.getSelectedFiles();
-            if (selectedFiles != null && selectedFiles.length > 0) {
-                selected.addAll(Arrays.asList(selectedFiles));
-            } else if (chooser.getSelectedFile() != null) {
-                selected.add(chooser.getSelectedFile());
-            }
-
-            List<Track> tracks = libraryService.scanSelection(selected);
-            if (tracks.isEmpty()) {
-                JOptionPane.showMessageDialog(this,
-                        "No MP3, WAV or FLAC files found in selected items.",
-                        "Nothing added", JOptionPane.WARNING_MESSAGE);
-            } else {
-                loadTracks(libraryService.getAllTracks());
-            }
+        List<Track> tracks = libraryService.scanSelection(Arrays.asList(selected));
+        if (tracks.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "No MP3, WAV or FLAC files found in selected items.",
+                    "Nothing added", JOptionPane.WARNING_MESSAGE);
+        } else {
+            loadTracks(libraryService.getAllTracks());
         }
     }
 

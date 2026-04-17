@@ -206,37 +206,24 @@ public class CreatePlaylistDialog extends JDialog {
     }
 
     private void chooseCover() {
+        File file = FileChooserUtils.chooseImageFile(this);
+        if (file == null) {
+            return;
+        }
+
         try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {}
-
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Choose cover image");
-        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                "Images (*.jpg, *.jpeg, *.png)", "jpg", "jpeg", "png"
-        ));
-
-        int result = chooser.showOpenDialog(this);
-        try {
-            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
-        } catch (Exception ignored) {}
-
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File file = chooser.getSelectedFile();
-            try {
-                BufferedImage img = ImageIO.read(file);
-                if (img != null) {
-                    // save selected cover data
-                    ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
-                    ImageIO.write(img, "png", byteOutput);
-                    selectedCoverData = byteOutput.toByteArray();
-                    // preview cover
-                    Image scaled = img.getScaledInstance(100, 100, Image.SCALE_SMOOTH);
-                    coverPreview.setIcon(new ImageIcon(scaled));
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+            BufferedImage img = ImageIO.read(file);
+            if (img != null) {
+                // save selected cover data
+                ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
+                ImageIO.write(img, "png", byteOutput);
+                selectedCoverData = byteOutput.toByteArray();
+                // preview cover
+                Image scaled = img.getScaledInstance(100, 100, Image.SCALE_SMOOTH);
+                coverPreview.setIcon(new ImageIcon(scaled));
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
