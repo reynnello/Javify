@@ -91,6 +91,26 @@ public class TrackDAO {
         return result;
     }
 
+    // delete track by id
+    public boolean deleteTrackById(int trackId) {
+        String existsSql = "SELECT 1 FROM tracks WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection()) {
+            try (PreparedStatement existsStmt = conn.prepareStatement(existsSql)) {
+                existsStmt.setInt(1, trackId);
+                ResultSet rs = existsStmt.executeQuery();
+                if (!rs.next()) {
+                    return false;
+                }
+            }
+
+            deleteTrackWithDependencies(conn, trackId);
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     // mapping resultset into an object
     private Track mapTrack(ResultSet rs) throws SQLException {
         return new Track(

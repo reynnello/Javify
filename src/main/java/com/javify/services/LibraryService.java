@@ -138,6 +138,10 @@ public class LibraryService {
         return trackDAO.searchTracks(query);
     }
 
+    public boolean deleteTrackById(int trackId) {
+        return trackDAO.deleteTrackById(trackId);
+    }
+
     private boolean isSupportedAudioFile(String fileName) {
         String lower = fileName.toLowerCase();
         return lower.endsWith(".mp3") || lower.endsWith(".wav") || lower.endsWith(".flac");

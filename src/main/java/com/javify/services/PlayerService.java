@@ -16,6 +16,7 @@ public class PlayerService {
 
     // state of the player
     public enum State { STOPPED, PLAYING, PAUSED }
+    public enum RepeatMode { OFF, TRACK }
 
     private State state = State.STOPPED;
     private Track currentTrack;
@@ -24,6 +25,7 @@ public class PlayerService {
     private int currentIndex = 0;
     private boolean shuffle = false;
     private volatile float volume = 0.7f;
+    private RepeatMode repeatMode = RepeatMode.OFF;
 
     // audio player
     private Clip clip;
@@ -34,6 +36,7 @@ public class PlayerService {
     // callbacks
     private final List<Consumer<Track>> onTrackChangedListeners = new ArrayList<>();
     private final List<Consumer<State>> onStateChangedListeners = new ArrayList<>();
+    private final List<Consumer<RepeatMode>> onRepeatModeChangedListeners = new ArrayList<>();
     private final List<BiConsumer<Long, Long>> onProgressListeners = new ArrayList<>();
     private final List<Runnable> onQueueEndListeners = new ArrayList<>();
 
@@ -73,8 +76,8 @@ public class PlayerService {
     public void pause() {
         synchronized (clipLock) {
             if (state == State.PLAYING && clip != null) {
-                clip.stop();
                 setState(State.PAUSED);
+                clip.stop();
             }
         }
     }
@@ -91,7 +94,15 @@ public class PlayerService {
         if (queue.isEmpty()) {
             return;
         }
-        currentIndex = (currentIndex + 1) % queue.size();
+
+        if (currentIndex >= queue.size() - 1) {
+            if (repeatMode == RepeatMode.TRACK) {
+                playCurrentTrack(false, 0L);
+            }
+            return;
+        }
+
+        currentIndex++;
         playCurrentTrack(false, 0L);
     }
 
@@ -151,8 +162,19 @@ public class PlayerService {
         }
     }
 
+    // repeat mode
+    public void toggleRepeatMode() {
+        if (repeatMode == RepeatMode.OFF) {
+            repeatMode = RepeatMode.TRACK;
+        } else {
+            repeatMode = RepeatMode.OFF;
+        }
+        notifyRepeatModeChanged();
+    }
+
     // stop playback
     public void stop() {
+        setState(State.STOPPED);
         synchronized (clipLock) {
             if (clip != null) {
                 clip.stop();
@@ -161,7 +183,6 @@ public class PlayerService {
                 gainControl = null;
             }
         }
-        setState(State.STOPPED);
     }
 
     // getters
@@ -174,6 +195,9 @@ public class PlayerService {
     }
     public boolean isShuffle() {
         return shuffle;
+    }
+    public RepeatMode getRepeatMode() {
+        return repeatMode;
     }
     public long getPosition() {
         synchronized (clipLock) {
@@ -199,6 +223,11 @@ public class PlayerService {
     public void setOnStateChanged(Consumer<State> stateCallback) {
         if (stateCallback != null) {
             onStateChangedListeners.add(stateCallback);
+        }
+    }
+    public void setOnRepeatModeChanged(Consumer<RepeatMode> repeatModeCallback) {
+        if (repeatModeCallback != null) {
+            onRepeatModeChangedListeners.add(repeatModeCallback);
         }
     }
     public void setOnProgress(BiConsumer<Long, Long> progressCallback) {
@@ -251,32 +280,37 @@ public class PlayerService {
                 }
 
                 newClip.addLineListener(event -> {
-                    if (event.getType() == LineEvent.Type.STOP && state == State.PLAYING) {
-                        // if the track ends, play the next one
-                        if (newClip.getMicrosecondPosition() >= newClip.getMicrosecondLength() - 100_000) {
-                            if (currentIndex < queue.size() - 1) {
-                                currentIndex++;
-                                playCurrentTrack(false, 0L);
-                            } else {
-                                setState(State.STOPPED);
-                                for (Runnable listener : new ArrayList<>(onQueueEndListeners)) {
-                                    listener.run();
-                                }
-                            }
+                    if (event.getType() != LineEvent.Type.STOP) {
+                        return;
+                    }
+
+                    if (event.getLine() != newClip) {
+                        return;
+                    }
+
+                    synchronized (clipLock) {
+                        if (clip != newClip || state != State.PLAYING) {
+                            return;
                         }
                     }
+
+                    handleTrackFinished();
                 });
 
                 synchronized (clipLock) {
-                    if (clip != null) {
-                        clip.stop();
-                        clip.close();
-                    }
+                    Clip previousClip = clip;
                     clip = newClip;
                     gainControl = clip.isControlSupported(FloatControl.Type.MASTER_GAIN)
                             ? (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN)
                             : null;
                     applyVolumeToClip();
+
+                    // stop previous clip after switching active reference to avoid stale STOP handling.
+                    if (previousClip != null) {
+                        previousClip.stop();
+                        previousClip.close();
+                    }
+
                     if (startPaused) {
                         long clamped = Math.max(0L, Math.min(initialPositionMicroseconds, clip.getMicrosecondLength()));
                         clip.setMicrosecondPosition(clamped);
@@ -344,6 +378,32 @@ public class PlayerService {
     private void notifyTrackChanged(Track track) {
         for (Consumer<Track> listener : new ArrayList<>(onTrackChangedListeners)) {
             listener.accept(track);
+        }
+    }
+
+    private void notifyRepeatModeChanged() {
+        for (Consumer<RepeatMode> listener : new ArrayList<>(onRepeatModeChangedListeners)) {
+            listener.accept(repeatMode);
+        }
+    }
+
+
+    // handling track end (e.g., end of song) for repeat mode
+    private void handleTrackFinished() {
+        if (repeatMode == RepeatMode.TRACK && !queue.isEmpty()) {
+            playCurrentTrack(false, 0L);
+            return;
+        }
+
+        if (currentIndex < queue.size() - 1) {
+            currentIndex++;
+            playCurrentTrack(false, 0L);
+            return;
+        }
+
+        setState(State.STOPPED);
+        for (Runnable listener : new ArrayList<>(onQueueEndListeners)) {
+            listener.run();
         }
     }
 

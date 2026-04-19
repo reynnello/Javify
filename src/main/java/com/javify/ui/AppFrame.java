@@ -1,6 +1,7 @@
 package com.javify.ui;
 
 import com.javify.dao.AppStateDAO;
+import com.javify.dao.LisHistoryDAO;
 import com.javify.dao.TrackDAO;
 import com.javify.dao.UserDAO;
 import com.javify.objects.Playlist;
@@ -17,6 +18,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Locale;
 import javax.imageio.ImageIO;
 
 public class AppFrame extends JFrame {
@@ -27,12 +29,15 @@ public class AppFrame extends JFrame {
     private static final String MAIN_CARD = "main";
     private static final String PROFILE_CARD = "profile";
     private static final String SETTING_GLOBAL_VOLUME = "global_volume";
+    private static final String SETTING_SHUFFLE_ENABLED = "shuffle_enabled";
+    private static final String SETTING_REPEAT_MODE = "repeat_mode";
     private static final Color MENU_BG = new Color(24, 24, 24);
     private static final Color MENU_HOVER = new Color(48, 48, 48);
 
     private CardLayout cardLayout;
     private JPanel cardsPanel;
     private LibraryPanel libraryPanel;
+    private UserPanel userPanel;
     private final PlayerService playerService;
     private final UserDAO userDAO;
     private final AppStateDAO appStateDAO;
@@ -49,6 +54,7 @@ public class AppFrame extends JFrame {
         this.appStateDAO = new AppStateDAO();
         this.trackDAO = new TrackDAO();
         applySavedGlobalVolume();
+        applySavedPlaybackModes();
         initWindow();
     }
 
@@ -78,7 +84,7 @@ public class AppFrame extends JFrame {
         mainWindow.add(createContentArea(), BorderLayout.CENTER);
         cardsPanel.add(mainWindow, MAIN_CARD);
 
-        UserPanel userPanel = new UserPanel(
+        userPanel = new UserPanel(
                 currentUser,
                 dbUrl,
                 () -> cardLayout.show(cardsPanel, MAIN_CARD),
@@ -87,6 +93,14 @@ public class AppFrame extends JFrame {
         cardsPanel.add(userPanel, PROFILE_CARD);
         cardLayout.show(cardsPanel, MAIN_CARD);
 
+        LisHistoryDAO historyDAO = new LisHistoryDAO();
+        playerService.setOnTrackChanged(track -> {
+            if (track != null && track.getId() > 0) {
+                historyDAO.addToHistory(currentUser.getId(), track.getId());
+            }
+        });
+
+
         add(cardsPanel);
         initPlaybackStatePersistence();
         restorePlaybackState();
@@ -94,6 +108,8 @@ public class AppFrame extends JFrame {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
                 persistPlaybackState();
+                persistGlobalVolume();
+                persistPlaybackModes();
             }
         });
         setVisible(true);
@@ -107,6 +123,7 @@ public class AppFrame extends JFrame {
         playbackStateTimer = new Timer(2000, e -> {
             persistPlaybackState();
             persistGlobalVolume();
+            persistPlaybackModes();
         });
         playbackStateTimer.setRepeats(true);
         playbackStateTimer.start();
@@ -136,6 +153,32 @@ public class AppFrame extends JFrame {
 
     private void persistGlobalVolume() {
         appStateDAO.setSetting(SETTING_GLOBAL_VOLUME, String.valueOf(playerService.getVolume()));
+    }
+
+    // playback modes persistence
+    private void applySavedPlaybackModes() {
+        String savedShuffle = appStateDAO.getSetting(SETTING_SHUFFLE_ENABLED);
+        if (savedShuffle != null && Boolean.parseBoolean(savedShuffle) != playerService.isShuffle()) {
+            playerService.toggleShuffle();
+        }
+
+        String savedRepeatMode = appStateDAO.getSetting(SETTING_REPEAT_MODE);
+        if (savedRepeatMode == null || savedRepeatMode.isBlank()) {
+            return;
+        }
+
+        try {
+            PlayerService.RepeatMode targetMode = PlayerService.RepeatMode.valueOf(savedRepeatMode.trim().toUpperCase(Locale.ROOT));
+            if (targetMode != playerService.getRepeatMode()) {
+                playerService.toggleRepeatMode();
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+    }
+
+    private void persistPlaybackModes() {
+        appStateDAO.setSetting(SETTING_SHUFFLE_ENABLED, String.valueOf(playerService.isShuffle()));
+        appStateDAO.setSetting(SETTING_REPEAT_MODE, playerService.getRepeatMode().name());
     }
 
     // restore playback state
@@ -365,20 +408,21 @@ public class AppFrame extends JFrame {
         menu.setBorder(new EmptyBorder(6, 6, 6, 6));
 
         JMenuItem profileItem = new JMenuItem("Profile");
-        JMenuItem settingsItem = new JMenuItem("Settings");
         JMenuItem logoutItem = new JMenuItem("Log out");
 
         styleMenuItem(profileItem);
-        styleMenuItem(settingsItem);
         styleMenuItem(logoutItem);
         logoutItem.setForeground(new Color(220, 80, 80));
 
-        profileItem.addActionListener(e -> cardLayout.show(cardsPanel, PROFILE_CARD));
-        settingsItem.addActionListener(e -> {});
+        profileItem.addActionListener(e -> {
+            if (userPanel != null) {
+                userPanel.refreshHistory();
+            }
+            cardLayout.show(cardsPanel, PROFILE_CARD);
+        });
         logoutItem.addActionListener(e -> handleLogout());
 
         menu.add(profileItem);
-        menu.add(settingsItem);
         menu.add(Box.createVerticalStrut(4));
 
         JPanel divider = new JPanel();
@@ -407,6 +451,7 @@ public class AppFrame extends JFrame {
         if (confirm == JOptionPane.YES_OPTION) {
             persistPlaybackState();
             persistGlobalVolume();
+            persistPlaybackModes();
             appStateDAO.clearLastUserId();
             if (playbackStateTimer != null) {
                 playbackStateTimer.stop();

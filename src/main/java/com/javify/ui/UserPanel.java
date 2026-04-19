@@ -1,25 +1,34 @@
 package com.javify.ui;
 
+import com.javify.dao.LisHistoryDAO;
 import com.javify.dao.UserDAO;
+import com.javify.objects.Track;
 import com.javify.objects.User;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 public class UserPanel extends JPanel {
 
     private static final int AVATAR_SIZE = 80;
+    private static final int PROFILE_FORM_WIDTH = 390;
+    private static final int PROFILE_PRIMARY_BUTTON_WIDTH = 210;
+    private static final int PROFILE_SECONDARY_BUTTON_WIDTH = 150;
 
     private final User currentUser;
     private final UserDAO userDAO;
+    private final LisHistoryDAO historyDAO;
+    private JPanel historyPanel;
+    private JLabel totalPlayedLabel;
     private final Runnable onBack;
     private final Runnable onAvatarChanged;
 
@@ -31,6 +40,7 @@ public class UserPanel extends JPanel {
     public UserPanel(User currentUser, String dbUrl, Runnable onBack, Runnable onAvatarChanged) {
         this.currentUser = currentUser;
         this.userDAO = new UserDAO(dbUrl);
+        this.historyDAO = new LisHistoryDAO();
         this.onBack = onBack;
         this.onAvatarChanged = onAvatarChanged;
         initUi();
@@ -76,35 +86,47 @@ public class UserPanel extends JPanel {
         JPanel outer = new JPanel(new GridBagLayout());
         outer.setBackground(new Color(28, 28, 28));
 
+        // two columns layout for profile and history
+        JPanel columns = new JPanel(new GridLayout(1, 2, 24, 0));
+        columns.setBackground(new Color(28, 28, 28));
+        columns.setBorder(new EmptyBorder(32, 32, 32, 32));
+        columns.setMaximumSize(new Dimension(980, Integer.MAX_VALUE));
+        columns.setPreferredSize(new Dimension(980, 560));
+
+        columns.add(createProfileColumn());
+        columns.add(createHistoryColumn());
+
+        outer.add(columns);
+        return outer;
+    }
+
+    private JPanel createProfileColumn() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBackground(new Color(18, 18, 18));
-        panel.setBorder(new EmptyBorder(32, 48, 32, 48));
-        panel.setMaximumSize(new Dimension(460, Integer.MAX_VALUE));
-        panel.setPreferredSize(new Dimension(460, 520));
+        panel.setBorder(new EmptyBorder(28, 32, 28, 32));
 
-        // avatar
         avatarLabel = new JLabel(loadUserAvatar());
         avatarLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(avatarLabel);
 
         panel.add(Box.createVerticalStrut(12));
 
-        // username
         JLabel usernameLabel = new JLabel(currentUser.getUsername());
         usernameLabel.setForeground(Color.WHITE);
         usernameLabel.setFont(new Font("Sans-Serif", Font.BOLD, 20));
         usernameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(usernameLabel);
 
-        panel.add(Box.createVerticalStrut(16));
+        panel.add(Box.createVerticalStrut(12));
 
-        // change avatar button
         JButton changeAvatarBtn = new RoundedButton("Change avatar");
         changeAvatarBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        changeAvatarBtn.setMaximumSize(new Dimension(PROFILE_SECONDARY_BUTTON_WIDTH, 34));
+        changeAvatarBtn.setPreferredSize(new Dimension(PROFILE_SECONDARY_BUTTON_WIDTH, 34));
         changeAvatarBtn.setBackground(new Color(185, 99, 6));
         changeAvatarBtn.setForeground(Color.WHITE);
-        changeAvatarBtn.setBorder(new EmptyBorder(5, 10, 5, 10));
+        changeAvatarBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
         changeAvatarBtn.setFocusPainted(false);
         changeAvatarBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         if (changeAvatarBtn instanceof RoundedButton rounded) {
@@ -115,24 +137,29 @@ public class UserPanel extends JPanel {
         changeAvatarBtn.addActionListener(e -> handleChangeAvatar());
         panel.add(changeAvatarBtn);
 
-        panel.add(Box.createVerticalStrut(16));
+        panel.add(Box.createVerticalStrut(24));
 
-
-        // separator
         JSeparator sep = new JSeparator();
         sep.setForeground(new Color(60, 60, 60));
-        sep.setMaximumSize(new Dimension(360, 1));
+        sep.setMaximumSize(new Dimension(PROFILE_FORM_WIDTH, 1));
+        sep.setPreferredSize(new Dimension(PROFILE_FORM_WIDTH, 1));
         sep.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(sep);
 
-        panel.add(Box.createVerticalStrut(24));
+        panel.add(Box.createVerticalStrut(20));
 
         // section: change password
+        JLabel pwTitle = new JLabel("Change password");
+        pwTitle.setForeground(new Color(160, 160, 160));
+        pwTitle.setFont(new Font("Sans-Serif", Font.BOLD, 13));
+        pwTitle.setHorizontalAlignment(SwingConstants.CENTER);
+        pwTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        pwTitle.setMaximumSize(new Dimension(PROFILE_FORM_WIDTH, pwTitle.getPreferredSize().height));
+        pwTitle.setPreferredSize(new Dimension(PROFILE_FORM_WIDTH, pwTitle.getPreferredSize().height));
+        panel.add(pwTitle);
 
+        panel.add(Box.createVerticalStrut(14));
 
-        panel.add(Box.createVerticalStrut(16));
-
-        // password fields
         oldPasswordField = createPasswordField();
         newPasswordField = createPasswordField();
         confirmPasswordField = createPasswordField();
@@ -143,11 +170,13 @@ public class UserPanel extends JPanel {
         panel.add(Box.createVerticalStrut(10));
         panel.add(labeledField("Confirm new password", confirmPasswordField));
 
-        panel.add(Box.createVerticalStrut(24));
+        panel.add(Box.createVerticalStrut(20));
 
         // change password button
         JButton changePasswordBtn = new RoundedButton("Change password");
         changePasswordBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        changePasswordBtn.setMaximumSize(new Dimension(PROFILE_PRIMARY_BUTTON_WIDTH, 38));
+        changePasswordBtn.setPreferredSize(new Dimension(PROFILE_PRIMARY_BUTTON_WIDTH, 38));
         changePasswordBtn.setBackground(new Color(185, 99, 6));
         changePasswordBtn.setForeground(Color.WHITE);
         changePasswordBtn.setFont(new Font("Sans-Serif", Font.BOLD, 13));
@@ -162,8 +191,200 @@ public class UserPanel extends JPanel {
         changePasswordBtn.addActionListener(e -> handleChangePassword());
         panel.add(changePasswordBtn);
 
-        outer.add(panel);
-        return outer;
+        return panel;
+    }
+
+    // history column
+    private JPanel createHistoryColumn() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(new Color(18, 18, 18));
+        panel.setBorder(new EmptyBorder(28, 32, 28, 32));
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(new Color(18, 18, 18));
+        header.setBorder(new EmptyBorder(0, 0, 14, 0));
+
+        JPanel titleBlock = new JPanel();
+        titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
+        titleBlock.setOpaque(false);
+
+        JLabel title = new JLabel("Listening history");
+        title.setForeground(Color.WHITE);
+        title.setFont(new Font("Sans-Serif", Font.BOLD, 16));
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        totalPlayedLabel = new JLabel();
+        totalPlayedLabel.setForeground(new Color(170, 170, 170));
+        totalPlayedLabel.setFont(new Font("Sans-Serif", Font.PLAIN, 12));
+        totalPlayedLabel.setBorder(new EmptyBorder(2, 0, 0, 0));
+        totalPlayedLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        titleBlock.add(title);
+        titleBlock.add(totalPlayedLabel);
+        header.add(titleBlock, BorderLayout.WEST);
+
+        RoundedButton clearBtn = new RoundedButton("Clear");
+        clearBtn.setBackground(new Color(40, 40, 40));
+        clearBtn.setHoverBackground(new Color(56, 56, 56));
+        clearBtn.setForeground(new Color(200, 200, 200));
+        clearBtn.setBorder(new EmptyBorder(5, 12, 5, 12));
+        clearBtn.setCornerRadius(10);
+        clearBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        clearBtn.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "Clear listening history?",
+                    "Clear history",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (confirm == JOptionPane.YES_OPTION) {
+                historyDAO.clearHistory(currentUser.getId());
+                refreshHistory();
+            }
+        });
+        header.add(clearBtn, BorderLayout.EAST);
+        panel.add(header, BorderLayout.NORTH);
+
+        historyPanel = new JPanel();
+        historyPanel.setLayout(new BoxLayout(historyPanel, BoxLayout.Y_AXIS));
+        historyPanel.setBackground(new Color(18, 18, 18));
+
+        JScrollPane scroll = new JScrollPane(historyPanel);
+        scroll.setBorder(null);
+        scroll.setBackground(new Color(18, 18, 18));
+        scroll.getViewport().setBackground(new Color(18, 18, 18));
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.getVerticalScrollBar().setUnitIncrement(14);
+        scroll.getVerticalScrollBar().setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                thumbColor = new Color(185, 99, 6);
+                trackColor = new Color(30, 30, 30);
+            }
+
+            @Override
+            protected JButton createDecreaseButton(int orientation) {
+                return emptyBtn();
+            }
+
+            @Override
+            protected JButton createIncreaseButton(int orientation) {
+                return emptyBtn();
+            }
+
+            private JButton emptyBtn() {
+                JButton button = new JButton();
+                button.setPreferredSize(new Dimension(0, 0));
+                return button;
+            }
+        });
+
+        panel.add(scroll, BorderLayout.CENTER);
+        refreshHistory();
+        return panel;
+    }
+
+    public void refreshHistory() {
+        if (historyPanel == null) {
+            return;
+        }
+
+        historyPanel.removeAll();
+        List<Track> history = historyDAO.getHistory(currentUser.getId());
+        if (totalPlayedLabel != null) {
+            totalPlayedLabel.setText("Total played tracks: " + historyDAO.getTotalPlayedTracks(currentUser.getId()));
+        }
+
+        if (history.isEmpty()) {
+            JLabel empty = new JLabel("No tracks played yet");
+            empty.setForeground(new Color(100, 100, 100));
+            empty.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
+            empty.setBorder(new EmptyBorder(8, 0, 0, 0));
+            empty.setAlignmentX(Component.LEFT_ALIGNMENT);
+            historyPanel.add(empty);
+        } else {
+            for (Track track : history) {
+                historyPanel.add(createHistoryItem(track));
+                historyPanel.add(Box.createVerticalStrut(4));
+            }
+        }
+
+        historyPanel.revalidate();
+        historyPanel.repaint();
+    }
+
+    private JPanel createHistoryItem(Track track) {
+        JPanel item = new JPanel(new BorderLayout(10, 0));
+        item.setBackground(new Color(28, 28, 28));
+        item.setBorder(new EmptyBorder(8, 10, 8, 10));
+        item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
+        item.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel cover = new JLabel(getTrackCover(track, 36));
+        item.add(cover, BorderLayout.WEST);
+
+        JPanel info = new JPanel();
+        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
+        info.setBackground(new Color(28, 28, 28));
+        info.setBorder(new EmptyBorder(0, 8, 0, 0));
+
+        String titleText = (track.getTitle() == null || track.getTitle().isBlank()) ? "Unknown title" : track.getTitle();
+        JLabel titleLabel = new JLabel(titleText);
+        titleLabel.setForeground(Color.WHITE);
+        titleLabel.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
+
+        String artistText = (track.getArtist() == null || track.getArtist().isBlank()) ? "Unknown artist" : track.getArtist();
+        JLabel artistLabel = new JLabel(artistText);
+        artistLabel.setForeground(new Color(140, 140, 140));
+        artistLabel.setFont(new Font("Sans-Serif", Font.PLAIN, 11));
+
+        info.add(titleLabel);
+        info.add(Box.createVerticalStrut(2));
+        info.add(artistLabel);
+        item.add(info, BorderLayout.CENTER);
+
+        item.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                item.setBackground(new Color(38, 38, 38));
+                info.setBackground(new Color(38, 38, 38));
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                item.setBackground(new Color(28, 28, 28));
+                info.setBackground(new Color(28, 28, 28));
+            }
+        });
+
+        return item;
+    }
+
+    private ImageIcon getTrackCover(Track track, int size) {
+        if (track.getCoverData() != null && track.getCoverData().length > 0) {
+            try {
+                BufferedImage img = ImageIO.read(new ByteArrayInputStream(track.getCoverData()));
+                if (img != null) {
+                    return new ImageIcon(img.getScaledInstance(size, size, Image.SCALE_SMOOTH));
+                }
+            } catch (IOException ignored) {
+            }
+        }
+
+        BufferedImage placeholder = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = placeholder.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(new Color(44, 44, 44));
+        graphics.fillRoundRect(0, 0, size, size, 10, 10);
+        Icon noteIcon = IconLoader.svg("music-note.svg", Math.max(12, size - 14), new Color(170, 170, 170));
+        if (noteIcon != null) {
+            int x = (size - noteIcon.getIconWidth()) / 2;
+            int y = (size - noteIcon.getIconHeight()) / 2;
+            noteIcon.paintIcon(null, graphics, x, y);
+        }
+        graphics.dispose();
+        return new ImageIcon(placeholder);
     }
 
     // change password logic
@@ -224,7 +445,8 @@ public class UserPanel extends JPanel {
         JPanel wrapper = new JPanel();
         wrapper.setLayout(new BoxLayout(wrapper, BoxLayout.Y_AXIS));
         wrapper.setBackground(new Color(18, 18, 18));
-        wrapper.setMaximumSize(new Dimension(360, 64));
+        wrapper.setMaximumSize(new Dimension(PROFILE_FORM_WIDTH, 64));
+        wrapper.setPreferredSize(new Dimension(PROFILE_FORM_WIDTH, 64));
         wrapper.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel label = new JLabel(labelText);
@@ -241,8 +463,8 @@ public class UserPanel extends JPanel {
 
     private JPasswordField createPasswordField() {
         JPasswordField field = new JPasswordField();
-        field.setMaximumSize(new Dimension(360, 36));
-        field.setPreferredSize(new Dimension(360, 36));
+        field.setMaximumSize(new Dimension(PROFILE_FORM_WIDTH, 36));
+        field.setPreferredSize(new Dimension(PROFILE_FORM_WIDTH, 36));
         field.setBackground(new Color(50, 50, 50));
         field.setForeground(Color.WHITE);
         field.setCaretColor(Color.WHITE);

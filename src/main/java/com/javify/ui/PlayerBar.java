@@ -20,6 +20,7 @@ public class PlayerBar extends JPanel {
     private JButton playPauseBtn;
     private JButton prevBtn;
     private JButton nextBtn;
+    private JButton repeatBtn;
     private JButton shuffleBtn;
     private JSlider progressSlider;
     private JLabel currentTimeLabel;
@@ -40,6 +41,7 @@ public class PlayerBar extends JPanel {
     }
 
     private void initUi() {
+        configureTooltipStyleAndTiming();
         setLayout(new BorderLayout());
         setBackground(new Color(10, 10, 10));
         setPreferredSize(new Dimension(0, 90));
@@ -114,21 +116,31 @@ public class PlayerBar extends JPanel {
         prevBtn = controlBtn("rewind.svg", 18, ICON_MUTED);
         playPauseBtn = controlBtn("play.svg", 20, ICON_ACTIVE);
         nextBtn = controlBtn("fast-forward.svg", 18, ICON_MUTED);
+        repeatBtn = controlBtn("repeat.svg", 18, ICON_MUTED);
 
         shuffleBtn.addActionListener(e -> {
             playerService.toggleShuffle();
             updateShuffleIcon();
+            updateControlTooltips();
         });
         prevBtn.addActionListener(e -> playerService.previous());
         playPauseBtn.addActionListener(e -> playerService.togglePlayPause());
         nextBtn.addActionListener(e -> playerService.next());
+        repeatBtn.addActionListener(e -> {
+            playerService.toggleRepeatMode();
+            updateRepeatIcon();
+            updateControlTooltips();
+        });
 
         controls.add(shuffleBtn);
         controls.add(prevBtn);
         controls.add(playPauseBtn);
         controls.add(nextBtn);
+        controls.add(repeatBtn);
 
         updateShuffleIcon();
+        updateRepeatIcon();
+        updateControlTooltips();
 
         panel.add(controls, BorderLayout.NORTH);
 
@@ -146,6 +158,7 @@ public class PlayerBar extends JPanel {
         totalTimeLabel.setFont(new Font("Sans-Serif", Font.PLAIN, 11));
 
         progressSlider = createSlider(0, 1000, 0);
+        progressSlider.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         progressSlider.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override public void mousePressed(java.awt.event.MouseEvent e) {
                 seeking = true;
@@ -181,6 +194,9 @@ public class PlayerBar extends JPanel {
 
         volumeSlider = createSlider(0, 100, Math.round(playerService.getVolume() * 100));
         volumeSlider.setPreferredSize(new Dimension(100, 20));
+        volumeSlider.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        volumeSlider.setToolTipText("Volume");
+        volumeIconLabel.setToolTipText("Volume");
         volumeSlider.addChangeListener(e -> {
             playerService.setVolume(volumeSlider.getValue() / 100f);
             updateVolumeIcon();
@@ -233,8 +249,15 @@ public class PlayerBar extends JPanel {
                 setButtonIcon(playPauseBtn, "play.svg", 20, ICON_ACTIVE);
             }
             updateShuffleIcon();
+            updateRepeatIcon();
+            updateControlTooltips();
             playPauseBtn.revalidate();
             playPauseBtn.repaint();
+        }));
+
+        playerService.setOnRepeatModeChanged(mode -> SwingUtilities.invokeLater(() -> {
+            updateRepeatIcon();
+            updateControlTooltips();
         }));
 
         playerService.setOnProgress((pos, dur) -> SwingUtilities.invokeLater(() -> {
@@ -293,6 +316,25 @@ public class PlayerBar extends JPanel {
         setButtonIcon(shuffleBtn, "shuffle.svg", 18, color);
     }
 
+    private void updateRepeatIcon() {
+        PlayerService.RepeatMode mode = playerService.getRepeatMode();
+        if (mode == PlayerService.RepeatMode.TRACK) {
+            setButtonIcon(repeatBtn, "repeat.svg", 18, ACCENT);
+            return;
+        }
+        setButtonIcon(repeatBtn, "repeat.svg", 18, ICON_MUTED);
+    }
+
+    private void updateControlTooltips() {
+        shuffleBtn.setToolTipText(playerService.isShuffle() ? "Shuffle: on" : "Shuffle: off");
+        prevBtn.setToolTipText("Previous track");
+        nextBtn.setToolTipText("Next track");
+        playPauseBtn.setToolTipText(playerService.getState() == PlayerService.State.PLAYING ? "Pause" : "Play");
+        repeatBtn.setToolTipText(playerService.getRepeatMode() == PlayerService.RepeatMode.TRACK
+                ? "Repeat current track: on"
+                : "Repeat current track: off");
+    }
+
     private void updateVolumeIcon() {
         int value = volumeSlider != null ? volumeSlider.getValue() : Math.round(playerService.getVolume() * 100);
         String iconName;
@@ -314,6 +356,18 @@ public class PlayerBar extends JPanel {
         button.setIcon(icon);
         button.setText("");
         button.setForeground(color);
+    }
+
+    private void configureTooltipStyleAndTiming() {
+        ToolTipManager manager = ToolTipManager.sharedInstance();
+        manager.setInitialDelay(120);
+        manager.setReshowDelay(40);
+        manager.setDismissDelay(8000);
+
+        UIManager.put("ToolTip.background", new Color(18, 18, 18));
+        UIManager.put("ToolTip.foreground", Color.WHITE);
+        UIManager.put("ToolTip.border", BorderFactory.createLineBorder(new Color(60, 60, 60)));
+        UIManager.put("ToolTip.font", new Font("Sans-Serif", Font.PLAIN, 12));
     }
 
     // slider with custom UI

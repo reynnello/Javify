@@ -75,6 +75,7 @@ public class DatabaseManager {
             for (String sql : tables) stmt.execute(sql);
             ensureUsersAvatarColumn(conn);
             ensurePlaylistCoverColumn(conn);
+            ensureListeningHistoryPlayCountColumn(conn);
             System.out.println("Database initialized at: " + DB_PATH);
         } catch (SQLException e) {
             e.printStackTrace();
@@ -107,12 +108,23 @@ public class DatabaseManager {
             throw new SQLException("Failed to create database directory: " + parent, e);
         }
     }
-    // add cover_data column to playlists table if it doesn't exist'
+    // add cover_data column to playlists table if it doesn't exist
     private static void ensurePlaylistCoverColumn(Connection conn) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
             stmt.execute("ALTER TABLE playlists ADD COLUMN cover_data BLOB");
         } catch (SQLException e) {
             if (e.getMessage() == null || !e.getMessage().contains("duplicate column name")) throw e;
+        }
+    }
+
+    // add play_count column to listening_history table if it doesn't exist
+    private static void ensureListeningHistoryPlayCountColumn(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute("ALTER TABLE listening_history ADD COLUMN play_count INTEGER NOT NULL DEFAULT 1");
+        } catch (SQLException e) {
+            if (e.getMessage() == null || !e.getMessage().contains("duplicate column name")) {
+                throw e;
+            }
         }
     }
 }

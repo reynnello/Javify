@@ -598,23 +598,49 @@ public class LibraryPanel extends JPanel {
         JPopupMenu menu = new JPopupMenu();
         stylePopupMenu(menu);
 
-        // playlists
-        List<Playlist> playlists = new PlaylistDAO().getPlaylistsByUser(currentUser.getId());
-        if (!playlists.isEmpty()) {
-            JMenu addToMenu = new JMenu("Add to playlist");
-            styleContextMenu(addToMenu);
-            stylePopupMenu(addToMenu.getPopupMenu());
+        if (activePlaylistId == null) {
+            // in full library view allow adding only to playlists that do not already contain this track
+            List<Playlist> playlists = playlistDAO.getPlaylistsByUser(currentUser.getId());
+            List<Playlist> availablePlaylists = playlists.stream()
+                    .filter(playlist -> !playlistContainsTrack(playlist, track.getId()))
+                    .toList();
 
-            for (Playlist playlist : playlists) {
-                JMenuItem item = new JMenuItem(playlist.getName());
-                styleContextItem(item);
-                item.addActionListener(ev -> {
-                    new PlaylistDAO().addTrackToPlaylist(playlist.getId(), track.getId());
-                    showToast("Track \"" + track.getTitle() + "\" added to \"" + playlist.getName() + "\"");
-                });
-                addToMenu.add(item);
+            if (!availablePlaylists.isEmpty()) {
+                JMenu addToMenu = new JMenu("Add to playlist");
+                styleContextMenu(addToMenu);
+                stylePopupMenu(addToMenu.getPopupMenu());
+
+                for (Playlist playlist : availablePlaylists) {
+                    JMenuItem item = new JMenuItem(playlist.getName());
+                    styleContextItem(item);
+                    item.addActionListener(ev -> {
+                        playlistDAO.addTrackToPlaylist(playlist.getId(), track.getId());
+                        showToast("Track \"" + track.getTitle() + "\" added to \"" + playlist.getName() + "\"");
+                    });
+                    addToMenu.add(item);
+                }
+                menu.add(addToMenu);
             }
-            menu.add(addToMenu);
+
+            if (menu.getComponentCount() > 0) {
+                menu.addSeparator();
+            }
+            JMenuItem deleteItem = new JMenuItem("Delete track");
+            styleContextItem(deleteItem);
+            deleteItem.setForeground(new Color(230, 120, 120));
+            deleteItem.addActionListener(ev -> deleteTrack(track));
+            menu.add(deleteItem);
+        } else {
+            // inside playlist view: only remove from current playlist
+            JMenuItem removeItem = new JMenuItem("Remove from this playlist");
+            styleContextItem(removeItem);
+            removeItem.setForeground(new Color(230, 120, 120));
+            removeItem.addActionListener(ev -> {
+                playlistDAO.removeTrackFromPlaylist(activePlaylistId, track.getId());
+                refreshCurrentView();
+                showToast("Track removed from playlist");
+            });
+            menu.add(removeItem);
         }
 
         if (menu.getComponentCount() == 0) {
@@ -622,6 +648,80 @@ public class LibraryPanel extends JPanel {
         }
 
         menu.show(table, e.getX(), e.getY());
+    }
+
+    private boolean playlistContainsTrack(Playlist playlist, int trackId) {
+        if (playlist == null || playlist.getTracks() == null) {
+            return false;
+        }
+        for (Track existing : playlist.getTracks()) {
+            if (existing != null && existing.getId() == trackId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // allows to delete any track from the library
+    private void deleteTrack(Track track) {
+        if (track == null || track.getId() <= 0) {
+            return;
+        }
+
+        String title = track.getTitle() == null || track.getTitle().isBlank() ? "Unknown title" : track.getTitle();
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Delete track \"" + title + "\" from library?\nThis will remove it from database and playlists.",
+                "Delete track",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        Track current = playerService.getCurrentTrack();
+        if (current != null && current.getId() == track.getId()) {
+            playerService.stop();
+        }
+
+        boolean deleted = libraryService.deleteTrackById(track.getId());
+        if (!deleted) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Failed to delete track from database.",
+                    "Delete track",
+                    JOptionPane.ERROR_MESSAGE
+            );
+            return;
+        }
+
+        refreshCurrentView();
+        showToast("Track \"" + title + "\" deleted");
+    }
+
+    private void refreshCurrentView() {
+        if (activePlaylistId == null) {
+            List<Track> all = libraryService.getAllTracks();
+            if (all.isEmpty()) {
+                currentTracks = new ArrayList<>();
+                tableModel.setRowCount(0);
+
+                Component libraryView = cards.getComponent(1);
+                if (libraryView instanceof JPanel lv) {
+                    JLabel countLabel = (JLabel) lv.getClientProperty("countLabel");
+                    if (countLabel != null) {
+                        countLabel.setText("0 tracks");
+                    }
+                }
+
+                cardLayout.show(cards, EMPTY_CARD);
+            } else {
+                loadTracks(all);
+            }
+        } else {
+            loadTracks(playlistDAO.getTracksForPlaylist(activePlaylistId));
+        }
     }
 
     private void styleContextItem(JMenuItem item) {
