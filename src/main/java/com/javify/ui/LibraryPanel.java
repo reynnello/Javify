@@ -4,9 +4,12 @@ import com.javify.objects.Track;
 import com.javify.objects.User;
 import com.javify.services.LibraryService;
 import com.javify.services.PlayerService;
+import com.javify.dao.PlaylistDAO;
+import com.javify.objects.Playlist;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.plaf.basic.BasicMenuItemUI;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
@@ -29,12 +32,16 @@ public class LibraryPanel extends JPanel {
     private final User currentUser;
     private final LibraryService libraryService;
     private final PlayerService playerService;
+    private final PlaylistDAO playlistDAO;
     private final CardLayout cardLayout;
     private final JPanel cards;
 
     private DefaultTableModel tableModel;
     private List<Track> currentTracks;
+    private Integer activePlaylistId;
     private int hoveredViewRow = -1;
+    private JPanel toastContainer;
+    private Timer toastTimer;
 
     private static final String EMPTY_CARD = "empty";
     private static final String LIBRARY_CARD = "library";
@@ -43,6 +50,7 @@ public class LibraryPanel extends JPanel {
         this.currentUser = currentUser;
         this.libraryService = new LibraryService();
         this.playerService = playerService;
+        this.playlistDAO = new PlaylistDAO();
         this.cardLayout = new CardLayout();
         this.cards = new JPanel(cardLayout);
 
@@ -52,6 +60,11 @@ public class LibraryPanel extends JPanel {
         cards.add(createEmptyState(), EMPTY_CARD);
         cards.add(createLibraryView(), LIBRARY_CARD);
         add(cards, BorderLayout.CENTER);
+
+        toastContainer = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 8));
+        toastContainer.setOpaque(false);
+        toastContainer.setVisible(false);
+        add(toastContainer, BorderLayout.SOUTH);
 
         // if tracks already exist, load them immediately from db
         List<Track> existing = libraryService.getAllTracks();
@@ -72,8 +85,7 @@ public class LibraryPanel extends JPanel {
         JLabel icon = new JLabel();
         Icon noteIcon = IconLoader.svg("music-note.svg", 48, Color.WHITE);
         icon.setIcon(noteIcon);
-        icon.setText(noteIcon == null ? "🎵" : "");
-        icon.setFont(new Font("Sans-Serif", Font.PLAIN, 48));
+        icon.setText("");
         icon.setAlignmentX(Component.CENTER_ALIGNMENT);
         inner.add(icon);
 
@@ -116,12 +128,10 @@ public class LibraryPanel extends JPanel {
         return panel;
     }
 
-    // основной вид с таблицей треков
     private JPanel createLibraryView() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(18, 18, 18));
 
-        // шапка с количеством треков и кнопкой сменить папку
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(new Color(18, 18, 18));
         header.setBorder(new EmptyBorder(16, 24, 8, 24));
@@ -201,13 +211,25 @@ public class LibraryPanel extends JPanel {
             }
         });
 
+        // context menu on right click
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                if (e.isPopupTrigger()) showTrackContextMenu(table, e);
+            }
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                if (e.isPopupTrigger()) showTrackContextMenu(table, e);
+            }
+        });
+
         // repaint hover icon when player state/current track changes
         playerService.setOnStateChanged(state -> SwingUtilities.invokeLater(table::repaint));
         playerService.setOnTrackChanged(track -> SwingUtilities.invokeLater(table::repaint));
 
         // scrollable table
         JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(40, 40, 40)));
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.setBackground(new Color(18, 18, 18));
         scrollPane.getViewport().setBackground(new Color(18, 18, 18));
 
@@ -268,8 +290,8 @@ public class LibraryPanel extends JPanel {
                     i + 1,
                     cover,
                     t.getTitle(),
-                    t.getArtist() != null ? t.getArtist() : "—",
-                    t.getAlbum() != null ? t.getAlbum() : "—",
+                    t.getArtist() != null ? t.getArtist() : "Unknown Artist",
+                    t.getAlbum() != null ? t.getAlbum() : "Unknown Album",
                     formatDuration(t.getDuration())
             });
         }
@@ -307,7 +329,7 @@ public class LibraryPanel extends JPanel {
         table.getTableHeader().setBackground(new Color(18, 18, 18));
         table.getTableHeader().setForeground(new Color(160, 160, 160));
         table.getTableHeader().setFont(new Font("Sans-Serif", Font.PLAIN, 12));
-        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(50, 50, 50)));
+        table.getTableHeader().setBorder(BorderFactory.createEmptyBorder());
         table.getTableHeader().setReorderingAllowed(false);
 
         // column widths
@@ -332,7 +354,7 @@ public class LibraryPanel extends JPanel {
                 if (showControl) {
                     boolean showPause = isCurrent && playerService.getState() == PlayerService.State.PLAYING;
                     setIcon(showPause ? trackPauseIcon : trackPlayIcon);
-                    setText((showPause ? trackPauseIcon : trackPlayIcon) == null ? (showPause ? "❚❚" : "▶") : "");
+                    setText("");
                     setForeground(new Color(18, 18, 18));
                     setBackground(ACCENT);
                     setFont(new Font("Sans-Serif", Font.BOLD, 14));
@@ -430,7 +452,7 @@ public class LibraryPanel extends JPanel {
             public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean foc, int row, int col) {
                 JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
                 panel.setBackground(new Color(18, 18, 18));
-                panel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(50, 50, 50)));
+                panel.setBorder(new EmptyBorder(0, 8, 0, 8));
 
                 JLabel text = new JLabel(value != null ? value.toString() : "");
                 text.setForeground(new Color(160, 160, 160));
@@ -531,10 +553,175 @@ public class LibraryPanel extends JPanel {
 
     // search tracks in the library
     public void search(String query) {
-        List<Track> results = query.isEmpty()
+        List<Track> base = activePlaylistId == null
                 ? libraryService.getAllTracks()
-                : libraryService.search(query);
+                : playlistDAO.getTracksForPlaylist(activePlaylistId);
+
+        List<Track> results;
+        if (query.isEmpty()) {
+            results = base;
+        } else {
+            String q = query.toLowerCase();
+            results = base.stream()
+                    .filter(track -> containsIgnoreCase(track.getTitle(), q)
+                            || containsIgnoreCase(track.getArtist(), q)
+                            || containsIgnoreCase(track.getAlbum(), q))
+                    .toList();
+        }
         loadTracks(results);
+    }
+
+    public void showPlaylistTracks(Playlist playlist) {
+        if (playlist == null) {
+            return;
+        }
+        activePlaylistId = playlist.getId();
+        loadTracks(playlistDAO.getTracksForPlaylist(playlist.getId()));
+    }
+
+    public void showAllTracks() {
+        activePlaylistId = null;
+        loadTracks(libraryService.getAllTracks());
+    }
+
+    private boolean containsIgnoreCase(String value, String queryLowercase) {
+        return value != null && value.toLowerCase().contains(queryLowercase);
+    }
+
+    // context menu for the library view
+    private void showTrackContextMenu(JTable table, java.awt.event.MouseEvent e) {
+        int viewRow = table.rowAtPoint(e.getPoint());
+        if (viewRow < 0 || currentTracks == null) return;
+        int modelRow = table.convertRowIndexToModel(viewRow);
+        Track track = currentTracks.get(modelRow);
+
+        JPopupMenu menu = new JPopupMenu();
+        stylePopupMenu(menu);
+
+        // playlists
+        List<Playlist> playlists = new PlaylistDAO().getPlaylistsByUser(currentUser.getId());
+        if (!playlists.isEmpty()) {
+            JMenu addToMenu = new JMenu("Add to playlist");
+            styleContextMenu(addToMenu);
+            stylePopupMenu(addToMenu.getPopupMenu());
+
+            for (Playlist playlist : playlists) {
+                JMenuItem item = new JMenuItem(playlist.getName());
+                styleContextItem(item);
+                item.addActionListener(ev -> {
+                    new PlaylistDAO().addTrackToPlaylist(playlist.getId(), track.getId());
+                    showToast("Track \"" + track.getTitle() + "\" added to \"" + playlist.getName() + "\"");
+                });
+                addToMenu.add(item);
+            }
+            menu.add(addToMenu);
+        }
+
+        if (menu.getComponentCount() == 0) {
+            return;
+        }
+
+        menu.show(table, e.getX(), e.getY());
+    }
+
+    private void styleContextItem(JMenuItem item) {
+        Color baseBg = new Color(28, 28, 28);
+        Color hoverBg = new Color(40, 40, 40);
+
+        item.setBackground(baseBg);
+        item.setForeground(Color.WHITE);
+        item.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
+        item.setBorder(new EmptyBorder(8, 14, 8, 14));
+        item.setBorderPainted(false);
+        item.setFocusPainted(false);
+        item.setFocusable(false);
+        item.setOpaque(true);
+
+        item.setUI(new BasicMenuItemUI() {
+            @Override
+            protected void paintBackground(Graphics graphics, JMenuItem menuItem, Color backgroundColor) {
+                ButtonModel model = menuItem.getModel();
+                graphics.setColor(model.isArmed() || model.isRollover() ? hoverBg : baseBg);
+                graphics.fillRect(0, 0, menuItem.getWidth(), menuItem.getHeight());
+            }
+
+            @Override
+            protected void paintText(Graphics graphics, JMenuItem menuItem, Rectangle textRect, String text) {
+                Graphics2D graphics2d = (Graphics2D) graphics.create();
+                graphics2d.setFont(menuItem.getFont());
+                graphics2d.setColor(menuItem.getForeground());
+                FontMetrics fm = graphics2d.getFontMetrics();
+                graphics2d.drawString(text, textRect.x, textRect.y + fm.getAscent());
+                graphics2d.dispose();
+            }
+        });
+    }
+
+    private void stylePopupMenu(JPopupMenu menu) {
+        menu.setBackground(new Color(28, 28, 28));
+        menu.setOpaque(true);
+        menu.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+        menu.setBorderPainted(false);
+    }
+
+    // message when track is added to playlist
+    private void showToast(String message) {
+        if (toastTimer != null && toastTimer.isRunning()) {
+            toastTimer.stop();
+        }
+
+        toastContainer.removeAll();
+
+        JPanel bubble = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 6));
+        bubble.setBackground(new Color(28, 28, 28, 235));
+        bubble.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(60, 60, 60)),
+                new EmptyBorder(2, 10, 2, 10)
+        ));
+
+        JLabel text = new JLabel(message);
+        text.setForeground(Color.WHITE);
+        text.setFont(new Font("Sans-Serif", Font.PLAIN, 12));
+        bubble.add(text);
+
+        toastContainer.add(bubble);
+        toastContainer.setVisible(true);
+        toastContainer.revalidate();
+        toastContainer.repaint();
+
+        toastTimer = new Timer(2200, event -> {
+            toastContainer.setVisible(false);
+            toastContainer.removeAll();
+            toastContainer.revalidate();
+            toastContainer.repaint();
+        });
+        toastTimer.setRepeats(false);
+        toastTimer.start();
+    }
+
+    private void styleContextMenu(JMenu menu) {
+        Color baseBg = new Color(28, 28, 28);
+        Color hoverBg = new Color(40, 40, 40);
+
+        menu.setOpaque(true);
+        menu.setBackground(baseBg);
+        menu.setForeground(Color.WHITE);
+        menu.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
+        menu.setBorder(new EmptyBorder(8, 14, 8, 14));
+        menu.setBorderPainted(false);
+        menu.setContentAreaFilled(false);
+
+        menu.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                menu.setBackground(hoverBg);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                menu.setBackground(baseBg);
+            }
+        });
     }
 }
 

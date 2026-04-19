@@ -20,15 +20,18 @@ public class SidebarPanel extends JPanel {
     private final PlaylistDAO playlistDAO;
     private final JFrame parentFrame;
     private final Consumer<Playlist> onPlaylistSelected;
+    private final Runnable onLibrarySelected;
 
     private JPanel playlistListPanel;
+    private Integer selectedPlaylistId;
 
-    public SidebarPanel(JFrame parentFrame, User currentUser, String dbUrl, Consumer<Playlist> onPlaylistSelected) {
+    public SidebarPanel(JFrame parentFrame, User currentUser, String dbUrl, Consumer<Playlist> onPlaylistSelected, Runnable onLibrarySelected) {
         this.parentFrame = parentFrame;
         this.currentUser = currentUser;
         this.dbUrl = dbUrl;
         this.playlistDAO = new PlaylistDAO();
         this.onPlaylistSelected = onPlaylistSelected;
+        this.onLibrarySelected = onLibrarySelected;
         initUi();
         refreshPlaylists();
     }
@@ -43,10 +46,22 @@ public class SidebarPanel extends JPanel {
         header.setBackground(new Color(12, 12, 12));
         header.setBorder(new EmptyBorder(14, 16, 10, 12));
 
-        JLabel title = new JLabel("Your Library");
-        title.setForeground(Color.WHITE);
-        title.setFont(new Font("Sans-Serif", Font.BOLD, 14));
-        header.add(title, BorderLayout.WEST);
+        RoundedButton libraryBtn = new RoundedButton("Your Library");
+        libraryBtn.setBackground(new Color(12, 12, 12));
+        libraryBtn.setHoverBackground(new Color(26, 26, 26));
+        libraryBtn.setPressedBackground(new Color(20, 20, 20));
+        libraryBtn.setForeground(Color.WHITE);
+        libraryBtn.setFont(new Font("Sans-Serif", Font.BOLD, 14));
+        libraryBtn.setBorder(new EmptyBorder(6, 10, 6, 10));
+        libraryBtn.setCornerRadius(12);
+        libraryBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        Icon libraryIcon = IconLoader.svg("playlist.svg", 15, Color.WHITE);
+        if (libraryIcon != null) {
+            libraryBtn.setIcon(libraryIcon);
+            libraryBtn.setIconTextGap(8);
+        }
+        libraryBtn.addActionListener(e -> selectLibrary());
+        header.add(libraryBtn, BorderLayout.WEST);
 
         Icon addIconDefault = IconLoader.svg("plus-circle.svg", 18, new Color(160, 160, 160));
         Icon addIconHover = IconLoader.svg("plus-circle.svg", 18, Color.WHITE);
@@ -125,10 +140,14 @@ public class SidebarPanel extends JPanel {
 
     private JPanel createPlaylistItem(Playlist playlist) {
         JPanel item = new JPanel(new BorderLayout(10, 0));
-        item.setBackground(new Color(12, 12, 12));
+        boolean selected = selectedPlaylistId != null && selectedPlaylistId == playlist.getId();
+        Color baseBg = selected ? new Color(28, 28, 28) : new Color(12, 12, 12);
+        Color hoverBg = new Color(24, 24, 24);
+        item.setBackground(baseBg);
         item.setBorder(new EmptyBorder(6, 12, 6, 12));
         item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
         item.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        item.setFocusable(true);
 
         // cover
         JLabel cover = new JLabel(getPlaylistCover(playlist, 40));
@@ -136,26 +155,36 @@ public class SidebarPanel extends JPanel {
 
         // title
         JLabel name = new JLabel(playlist.getName());
-        name.setForeground(new Color(200, 200, 200));
+        name.setForeground(selected ? Color.WHITE : new Color(200, 200, 200));
         name.setFont(new Font("Sans-Serif", Font.PLAIN, 13));
         item.add(name, BorderLayout.CENTER);
 
-        // hover style
-        item.addMouseListener(new java.awt.event.MouseAdapter() {
+        java.awt.event.MouseAdapter clickAndHover = new java.awt.event.MouseAdapter() {
             @Override public void mouseEntered(java.awt.event.MouseEvent e) {
-                item.setBackground(new Color(24, 24, 24));
+                item.setBackground(hoverBg);
                 name.setForeground(Color.WHITE);
             }
+
             @Override public void mouseExited(java.awt.event.MouseEvent e) {
-                item.setBackground(new Color(12, 12, 12));
-                name.setForeground(new Color(200, 200, 200));
+                item.setBackground(baseBg);
+                name.setForeground(selected ? Color.WHITE : new Color(200, 200, 200));
             }
+
             @Override public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (!SwingUtilities.isLeftMouseButton(e)) {
+                    return;
+                }
+                selectedPlaylistId = playlist.getId();
+                item.requestFocusInWindow();
+                refreshPlaylists();
                 if (onPlaylistSelected != null) {
                     onPlaylistSelected.accept(playlist);
                 }
             }
-        });
+        };
+        item.addMouseListener(clickAndHover);
+        cover.addMouseListener(clickAndHover);
+        name.addMouseListener(clickAndHover);
 
         // context menu on right click
         JPopupMenu contextMenu = new JPopupMenu();
@@ -177,7 +206,11 @@ public class SidebarPanel extends JPanel {
         deleteItem.addActionListener(ev -> {
             int confirm = JOptionPane.showConfirmDialog(parentFrame, "Delete \"" + playlist.getName() + "\"?", "Delete playlist", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
+                boolean wasSelected = selectedPlaylistId != null && selectedPlaylistId == playlist.getId();
                 playlistDAO.deletePlaylist(playlist.getId());
+                if (wasSelected) {
+                    selectLibrary();
+                }
                 refreshPlaylists();
             }
         });
@@ -189,14 +222,17 @@ public class SidebarPanel extends JPanel {
         contextMenu.add(separator);
         contextMenu.add(deleteItem);
 
-        item.addMouseListener(new java.awt.event.MouseAdapter() {
+        java.awt.event.MouseAdapter contextListener = new java.awt.event.MouseAdapter() {
             @Override public void mousePressed(java.awt.event.MouseEvent e) {
                 if (e.isPopupTrigger()) contextMenu.show(item, e.getX(), e.getY());
             }
             @Override public void mouseReleased(java.awt.event.MouseEvent e) {
                 if (e.isPopupTrigger())contextMenu.show(item, e.getX(), e.getY());
             }
-        });
+        };
+        item.addMouseListener(contextListener);
+        cover.addMouseListener(contextListener);
+        name.addMouseListener(contextListener);
 
         return item;
     }
@@ -251,16 +287,24 @@ public class SidebarPanel extends JPanel {
 
             @Override
             protected void paintText(Graphics graphics, JMenuItem menuItem, Rectangle textRect, String text) {
-                Graphics2D g2 = (Graphics2D) graphics.create();
-                g2.setFont(menuItem.getFont());
+                Graphics2D graphics2d = (Graphics2D) graphics.create();
+                graphics2d.setFont(menuItem.getFont());
                 // Keep text bright on hover while preserving custom red color for Delete.
                 Color baseColor = menuItem.getForeground();
                 Color hoverColor = baseColor.equals(new Color(220, 80, 80)) ? new Color(240, 130, 130) : Color.WHITE;
-                g2.setColor(menuItem.getModel().isArmed() || menuItem.getModel().isRollover() ? hoverColor : baseColor);
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(text, textRect.x, textRect.y + fm.getAscent());
-                g2.dispose();
+                graphics2d.setColor(menuItem.getModel().isArmed() || menuItem.getModel().isRollover() ? hoverColor : baseColor);
+                FontMetrics fm = graphics2d.getFontMetrics();
+                graphics2d.drawString(text, textRect.x, textRect.y + fm.getAscent());
+                graphics2d.dispose();
             }
         });
+    }
+
+    private void selectLibrary() {
+        selectedPlaylistId = null;
+        refreshPlaylists();
+        if (onLibrarySelected != null) {
+            onLibrarySelected.run();
+        }
     }
 }

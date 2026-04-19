@@ -76,7 +76,7 @@ public class PlayerBar extends JPanel {
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setFont(new Font("Sans-Serif", Font.BOLD, 13));
 
-        artistLabel = new JLabel("—") {
+        artistLabel = new JLabel("Unknown artist", SwingConstants.LEFT) {
             @Override
             // tooltip with full artist name
             public JToolTip createToolTip() {
@@ -110,10 +110,10 @@ public class PlayerBar extends JPanel {
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 8));
         controls.setBackground(new Color(10, 10, 10));
 
-        shuffleBtn = controlBtn("shuffle.svg", "⇄", 18, ICON_MUTED);
-        prevBtn = controlBtn("rewind.svg", "⏮", 18, ICON_MUTED);
-        playPauseBtn = controlBtn("play.svg", "▶", 20, ICON_ACTIVE);
-        nextBtn = controlBtn("fast-forward.svg", "⏭", 18, ICON_MUTED);
+        shuffleBtn = controlBtn("shuffle.svg", 18, ICON_MUTED);
+        prevBtn = controlBtn("rewind.svg", 18, ICON_MUTED);
+        playPauseBtn = controlBtn("play.svg", 20, ICON_ACTIVE);
+        nextBtn = controlBtn("fast-forward.svg", 18, ICON_MUTED);
 
         shuffleBtn.addActionListener(e -> {
             playerService.toggleShuffle();
@@ -228,9 +228,9 @@ public class PlayerBar extends JPanel {
 
         playerService.setOnStateChanged(state -> SwingUtilities.invokeLater(() -> {
             if (state == PlayerService.State.PLAYING) {
-                setButtonIcon(playPauseBtn, "pause.svg", "⏸", 20, ICON_ACTIVE);
+                setButtonIcon(playPauseBtn, "pause.svg", 20, ICON_ACTIVE);
             } else {
-                setButtonIcon(playPauseBtn, "play.svg", "▶", 20, ICON_ACTIVE);
+                setButtonIcon(playPauseBtn, "play.svg", 20, ICON_ACTIVE);
             }
             updateShuffleIcon();
             playPauseBtn.revalidate();
@@ -266,7 +266,7 @@ public class PlayerBar extends JPanel {
     }
 
     // helper methods
-    private JButton controlBtn(String iconName, String fallbackText, int iconSize, Color iconColor) {
+    private JButton controlBtn(String iconName, int iconSize, Color iconColor) {
         JButton btn = new RoundedButton();
         Dimension fixedControlSize = new Dimension(40, 32);
         btn.setFont(new Font("Sans-Serif", Font.PLAIN, 16));
@@ -284,13 +284,13 @@ public class PlayerBar extends JPanel {
             rounded.setHoverBackground(new Color(28, 28, 28));
             rounded.setPressedBackground(new Color(36, 36, 36));
         }
-        setButtonIcon(btn, iconName, fallbackText, iconSize, iconColor);
+        setButtonIcon(btn, iconName, iconSize, iconColor);
         return btn;
     }
 
     private void updateShuffleIcon() {
         Color color = playerService.isShuffle() ? ACCENT : ICON_MUTED;
-        setButtonIcon(shuffleBtn, "shuffle.svg", "⇄", 18, color);
+        setButtonIcon(shuffleBtn, "shuffle.svg", 18, color);
     }
 
     private void updateVolumeIcon() {
@@ -305,14 +305,14 @@ public class PlayerBar extends JPanel {
         }
         Icon icon = IconLoader.svg(iconName, 18, ICON_MUTED);
         volumeIconLabel.setIcon(icon);
-        volumeIconLabel.setText(icon == null ? "🔊" : "");
+        volumeIconLabel.setText("");
         volumeIconLabel.setForeground(ICON_MUTED);
     }
 
-    private void setButtonIcon(JButton button, String iconName, String fallbackText, int size, Color color) {
+    private void setButtonIcon(JButton button, String iconName, int size, Color color) {
         Icon icon = IconLoader.svg(iconName, size, color);
         button.setIcon(icon);
-        button.setText(icon == null ? fallbackText : "");
+        button.setText("");
         button.setForeground(color);
     }
 

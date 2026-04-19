@@ -54,9 +54,6 @@ public class UserPanel extends JPanel {
         Icon backIcon = IconLoader.svg("arrow-left.svg", 14, Color.WHITE);
         backBtn.setIcon(backIcon);
         backBtn.setIconTextGap(6);
-        if (backIcon == null) {
-            backBtn.setText("← Back");
-        }
         if (backBtn instanceof RoundedButton rounded) {
             rounded.setCornerRadius(14);
             rounded.setHoverBackground(new Color(48, 48, 48));

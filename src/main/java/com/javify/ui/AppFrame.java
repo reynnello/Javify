@@ -85,6 +85,7 @@ public class AppFrame extends JFrame {
                 this::refreshTopAvatar
         );
         cardsPanel.add(userPanel, PROFILE_CARD);
+        cardLayout.show(cardsPanel, MAIN_CARD);
 
         add(cardsPanel);
         initPlaybackStatePersistence();
@@ -164,17 +165,26 @@ public class AppFrame extends JFrame {
         JPanel area = new JPanel(new BorderLayout());
         area.setBackground(new Color(18, 18, 18));
 
-        sidebarPanel = new SidebarPanel(this, currentUser, dbUrl, this::openPlaylist);
+        sidebarPanel = new SidebarPanel(this, currentUser, dbUrl, this::openPlaylist, this::openLibrary);
         area.add(sidebarPanel, BorderLayout.WEST);
-
         libraryPanel = new LibraryPanel(currentUser, playerService);
         area.add(libraryPanel, BorderLayout.CENTER);
-
         return area;
     }
 
+    // method to open playlist
     private void openPlaylist(Playlist playlist) {
-        System.out.println("Open playlist: " + playlist.getName());
+        if (libraryPanel != null) {
+            libraryPanel.showPlaylistTracks(playlist);
+        }
+        cardLayout.show(cardsPanel, MAIN_CARD);
+    }
+
+    private void openLibrary() {
+        if (libraryPanel != null) {
+            libraryPanel.showAllTracks();
+        }
+        cardLayout.show(cardsPanel, MAIN_CARD);
     }
 
     // top bar
