@@ -31,6 +31,7 @@ public class PlayerService {
     private Clip clip;
     private FloatControl gainControl;
     private final Object clipLock = new Object();
+    private final Object queueLock = new Object();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     // callbacks
@@ -49,16 +50,20 @@ public class PlayerService {
 
     // queue management
     public void setQueue(List<Track> tracks, int startIndex) {
-        originalQueue = new ArrayList<>(tracks);
-        queue = new ArrayList<>(tracks);
-        currentIndex = startIndex;
+        synchronized (queueLock) {
+            originalQueue = new ArrayList<>(tracks);
+            queue = new ArrayList<>(tracks);
+            currentIndex = clampIndex(startIndex, queue.size());
+        }
         playCurrentTrack(false, 0L);
     }
 
     public void setQueuePausedAt(List<Track> tracks, int startIndex, long positionMicroseconds) {
-        originalQueue = new ArrayList<>(tracks);
-        queue = new ArrayList<>(tracks);
-        currentIndex = startIndex;
+        synchronized (queueLock) {
+            originalQueue = new ArrayList<>(tracks);
+            queue = new ArrayList<>(tracks);
+            currentIndex = clampIndex(startIndex, queue.size());
+        }
         playCurrentTrack(true, Math.max(0L, positionMicroseconds));
     }
 
@@ -91,30 +96,44 @@ public class PlayerService {
     }
 
     public void next() {
-        if (queue.isEmpty()) {
-            return;
-        }
-
-        if (currentIndex >= queue.size() - 1) {
-            if (repeatMode == RepeatMode.TRACK) {
-                playCurrentTrack(false, 0L);
+        synchronized (queueLock) {
+            if (queue.isEmpty()) {
+                return;
             }
-            return;
-        }
 
-        currentIndex++;
+            int resolved = resolveCurrentIndexByTrackId();
+            if (resolved >= 0) {
+                currentIndex = resolved;
+            }
+            currentIndex = clampIndex(currentIndex, queue.size());
+
+            if (currentIndex >= queue.size() - 1) {
+                currentIndex = 0;
+            } else {
+                currentIndex++;
+            }
+        }
         playCurrentTrack(false, 0L);
     }
 
     public void previous() {
-        if (queue.isEmpty()) {
-            return;
+        synchronized (queueLock) {
+            if (queue.isEmpty()) {
+                return;
+            }
         }
         // if the current track is playing, we need to seek to the beginning
         if (clip != null && clip.getMicrosecondPosition() > 3_000_000L) {
             seekTo(0);
         } else {
-            currentIndex = (currentIndex - 1 + queue.size()) % queue.size();
+            synchronized (queueLock) {
+                int resolved = resolveCurrentIndexByTrackId();
+                if (resolved >= 0) {
+                    currentIndex = resolved;
+                }
+                currentIndex = clampIndex(currentIndex, queue.size());
+                currentIndex = (currentIndex - 1 + queue.size()) % queue.size();
+            }
             playCurrentTrack(false, 0L);
         }
     }
@@ -137,27 +156,35 @@ public class PlayerService {
 
     // shuffle mode
     public void toggleShuffle() {
-        shuffle = !shuffle;
-        int currentTrackId = currentTrack != null ? currentTrack.getId() : -1;
+        synchronized (queueLock) {
+            shuffle = !shuffle;
+            int currentTrackId = currentTrack != null ? currentTrack.getId() : -1;
 
-        if (shuffle) {
-            Collections.shuffle(queue);
-            // loop through the queue and move the current track to the front
-            for (int i = 0; i < queue.size(); i++) {
-                if (queue.get(i).getId() == currentTrackId) {
-                    Collections.swap(queue, 0, i);
-                    currentIndex = 0;
-                    break;
+            if (shuffle) {
+                List<Track> shuffledQueue = new ArrayList<>(
+                        originalQueue.isEmpty() ? queue : originalQueue
+                );
+                Collections.shuffle(shuffledQueue);
+                queue = shuffledQueue;
+
+                // keep currently playing track selected after shuffle.
+                for (int i = 0; i < queue.size(); i++) {
+                    if (queue.get(i).getId() == currentTrackId) {
+                        currentIndex = i;
+                        return;
+                    }
                 }
-            }
-        } else {
-            // return to the original queue
-            queue = new ArrayList<>(originalQueue);
-            for (int i = 0; i < queue.size(); i++) {
-                if (queue.get(i).getId() == currentTrackId) {
-                    currentIndex = i;
-                    break;
+                currentIndex = clampIndex(currentIndex, queue.size());
+            } else {
+                // return to original queue order
+                queue = new ArrayList<>(originalQueue);
+                for (int i = 0; i < queue.size(); i++) {
+                    if (queue.get(i).getId() == currentTrackId) {
+                        currentIndex = i;
+                        return;
+                    }
                 }
+                currentIndex = clampIndex(currentIndex, queue.size());
             }
         }
     }
@@ -244,10 +271,14 @@ public class PlayerService {
     // internal methods
 
     private void playCurrentTrack(boolean startPaused, long initialPositionMicroseconds) {
-        if (queue.isEmpty()) {
-            return;
+        final Track trackToPlay;
+        synchronized (queueLock) {
+            if (queue.isEmpty()) {
+                return;
+            }
+            currentIndex = clampIndex(currentIndex, queue.size());
+            trackToPlay = queue.get(currentIndex);
         }
-        final Track trackToPlay = queue.get(currentIndex);
         currentTrack = trackToPlay;
 
         // execute on a separate thread to avoid blocking the UI
@@ -390,21 +421,46 @@ public class PlayerService {
 
     // handling track end (e.g., end of song) for repeat mode
     private void handleTrackFinished() {
-        if (repeatMode == RepeatMode.TRACK && !queue.isEmpty()) {
-            playCurrentTrack(false, 0L);
-            return;
-        }
+        synchronized (queueLock) {
+            if (repeatMode == RepeatMode.TRACK && !queue.isEmpty()) {
+                playCurrentTrack(false, 0L);
+                return;
+            }
 
-        if (currentIndex < queue.size() - 1) {
-            currentIndex++;
-            playCurrentTrack(false, 0L);
-            return;
+            if (currentIndex < queue.size() - 1) {
+                currentIndex++;
+                playCurrentTrack(false, 0L);
+                return;
+            }
         }
 
         setState(State.STOPPED);
         for (Runnable listener : new ArrayList<>(onQueueEndListeners)) {
             listener.run();
         }
+    }
+
+    private int clampIndex(int index, int size) {
+        if (size <= 0) {
+            return 0;
+        }
+        if (index < 0) {
+            return 0;
+        }
+        return Math.min(index, size - 1);
+    }
+
+    private int resolveCurrentIndexByTrackId() {
+        if (currentTrack == null || queue.isEmpty()) {
+            return -1;
+        }
+        int currentTrackId = currentTrack.getId();
+        for (int i = 0; i < queue.size(); i++) {
+            if (queue.get(i).getId() == currentTrackId) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private void emitProgressSnapshot() {

@@ -453,6 +453,7 @@ public class AppFrame extends JFrame {
             persistGlobalVolume();
             persistPlaybackModes();
             appStateDAO.clearLastUserId();
+            playerService.stop();
             if (playbackStateTimer != null) {
                 playbackStateTimer.stop();
             }

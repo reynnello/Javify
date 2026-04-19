@@ -44,7 +44,7 @@ public class LisHistoryDAO {
         }
     }
 
-    // track history of the last 5 tracks
+    // track history of the last 7 tracks
     public List<Track> getHistory(int userId) {
         List<Track> tracks = new ArrayList<>();
         String sql = """
@@ -52,7 +52,7 @@ public class LisHistoryDAO {
                 JOIN listening_history h ON t.id = h.track_id
                 WHERE h.user_id = ?
                 ORDER BY h.played_at DESC
-                LIMIT 5
+                LIMIT 6
                 """;
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
